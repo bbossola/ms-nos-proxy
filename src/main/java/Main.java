@@ -6,16 +6,15 @@ import java.util.UUID;
 
 public class Main {
 
-    private static int port;
-
     public static void main(String[] args) throws Exception {
-        port = 8881;
-        Microservice microservice = new Microservice("Proxy");
+        int port = 8881;
+        String name = "Proxy";
+        Microservice microservice = new Microservice(name);
         Cloud nimbus = new Cloud(new UUID(111, 222));
 
         microservice.join(nimbus);
 
-        RestApi restApi = new RestApi("proxy", "test", port);
+        RestApi restApi = new RestApi(name, "test", port);
         microservice.publish(restApi);
 
         Proxy proxy = new Proxy(microservice);

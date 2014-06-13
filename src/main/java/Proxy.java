@@ -25,8 +25,8 @@ public class Proxy {
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
-                return new HttpProxyFilter(originalRequest, microservice);
+            public HttpFilters filterRequest(HttpRequest request) {
+                return new HttpProxyFilter(request, microservice);
             }
         };
     }
