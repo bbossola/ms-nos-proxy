@@ -1,3 +1,5 @@
+package com.msnos.proxy.filter;
+
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RestApi;
 import io.netty.handler.codec.http.*;
@@ -10,23 +12,24 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
-import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
-import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
-import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
+import static io.netty.handler.codec.http.HttpHeaders.Names.*;
+import static io.netty.handler.codec.http.HttpResponseStatus.*;
 
 public class HttpProxyFilter extends HttpFiltersAdapter {
 
     private final Logger log = LoggerFactory.getLogger(HttpProxyFilter.class);
+    private final HttpRequest originalRequest;
     private final Microservice microservice;
+    private final RetryLogic retry;
 
     private RestApi rest;
     private Set<Cookie> cookies;
 
-    public HttpProxyFilter(HttpRequest originalRequest, Microservice microservice) {
+    public HttpProxyFilter(HttpRequest originalRequest, Microservice microservice, RetryLogic retry) {
         super(originalRequest);
+        this.originalRequest = originalRequest;
         this.microservice = microservice;
-        System.out.println(this.hashCode());
+        this.retry = retry;
     }
 
     @Override
@@ -41,9 +44,14 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
                 } else {
                     rest = routeRequest(request);
                 }
-
                 if (rest != null) {
-                    request.setUri(rest.getUrl());
+                    if (rest.isFaulty()) {
+                        response = createResponse(FOUND);
+                        response.headers().add(LOCATION, originalRequest.getUri());
+                        if (hasCorrectCookie(request)) cookies.remove(createCookie(rest));
+                    } else {
+                        request.setUri(rest.getUrl());
+                    }
                 } else {
                     response = createResponse(NOT_FOUND);
                 }
@@ -59,12 +67,17 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
     public HttpObject responsePre(HttpObject httpObject) {
         if (httpObject instanceof HttpResponse) {
             HttpResponse response = (HttpResponse) httpObject;
-            if (rest.hasAffinity()) {
-                DefaultCookie cookie = createResponseCookie(rest);
-                if (cookies == null) cookies = new HashSet<Cookie>();
-                if (!cookies.contains(cookie)) {
-                    cookie.setPath("/");
-                    response.headers().add(SET_COOKIE, ServerCookieEncoder.encode(cookie));
+            if (retry.isWorth(response)) {
+                response.setStatus(FOUND);
+                response.headers().add(LOCATION, originalRequest.getUri());
+            } else {
+                if (rest != null && rest.hasAffinity()) {
+                    DefaultCookie cookie = createCookie(rest);
+                    if (cookies == null) cookies = new HashSet<Cookie>();
+                    if (!cookies.contains(cookie)) {
+                        cookie.setPath("/");
+                        response.headers().add(SET_COOKIE, ServerCookieEncoder.encode(cookie));
+                    }
                 }
             }
             return response;
@@ -81,7 +94,7 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
     private RestApi routeCookiedRequest(HttpRequest httpRequest, Set<Cookie> cookies) throws Exception {
         RestApi result = null;
         for (Cookie cookie : cookies)
-            if (cookie.getName().contains(createPathString(httpRequest))) {
+            if (cookie.getName().contains(createPath(httpRequest))) {
                 result = microservice.searchApiById(Long.parseLong(cookie.getValue()));
                 break;
             }
@@ -89,14 +102,14 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
     }
 
     private boolean hasCorrectCookie(HttpRequest httpRequest) throws URISyntaxException {
-        return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(createPathString(httpRequest));
+        return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(createPath(httpRequest));
     }
 
-    private DefaultCookie createResponseCookie(RestApi rest) {
+    private DefaultCookie createCookie(RestApi rest) {
         return new DefaultCookie(String.format("x-%s/%s", rest.getName(), rest.getPath()), Long.toString(rest.getId()));
     }
 
-    private String createPathString(HttpRequest httpRequest) throws URISyntaxException {
+    private String createPath(HttpRequest httpRequest) throws URISyntaxException {
         String[] pathArray = getPathArray(httpRequest);
         if (pathArray.length < 3) return "";
         return String.format("%s/%s", pathArray[1], pathArray[2]);
@@ -110,4 +123,3 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
         return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
     }
 }
-

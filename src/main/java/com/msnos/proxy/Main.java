@@ -1,3 +1,5 @@
+package com.msnos.proxy;
+
 import com.workshare.msnos.core.Cloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RestApi;
@@ -8,7 +10,7 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         int port = 8881;
-        String name = "Proxy";
+        String name = "com.msnos.proxy.Proxy";
         Microservice microservice = new Microservice(name);
         Cloud nimbus = new Cloud(new UUID(111, 222));
 

@@ -1,3 +1,5 @@
+package com.msnos.proxy.filter;
+
 import com.workshare.msnos.core.Cloud;
 import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.RemoteAgent;
@@ -9,6 +11,7 @@ import com.workshare.msnos.usvc.RestApi;
 import io.netty.handler.codec.http.*;
 import org.junit.Before;
 import org.junit.Test;
+import org.littleshoot.proxy.HttpFilters;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
@@ -17,8 +20,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.*;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertTrue;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
@@ -28,111 +33,152 @@ public class HttpProxyFilterTest {
     private HttpRequest defaultHttpRequest;
     private Microservice microservice;
     private Cloud cloud;
+    private RetryLogic retryLogic;
+    private HttpProxyFilter filter;
 
     @Before
     public void setUp() throws Exception {
         cloud = mock(Cloud.class);
+        retryLogic = new RetryLogic();
+        defaultHttpRequest = httpRequest("/service", "/path");
+        filter = null;
     }
 
     @Test
     public void shouldInvokeSearchWithCorrectParameters() throws Exception {
-        defaultHttpRequest = getHttpRequest("/service", "/path");
         microservice = getMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13/25");
 
-        HttpProxyFilter filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
-        filter.requestPre(defaultHttpRequest);
+        filter().requestPre(defaultHttpRequest);
 
         verifyCorrectMicroserivceSearch(microservice, "service", "path");
     }
 
+
     @Test
     public void shouldPopulateCorrectlyTheRequestURI() throws Exception {
-        defaultHttpRequest = getHttpRequest("/service", "/path");
         microservice = getMockMicroserviceWithRestApi("name", "path", 1111, "10.10.20.13/25");
 
-        HttpProxyFilter filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
-        filter.requestPre(defaultHttpRequest);
+        filter().requestPre(defaultHttpRequest);
 
         assertEquals("http://10.10.20.13:1111/name/path/", defaultHttpRequest.getUri());
     }
 
     @Test
     public void shouldAddCookieWhenWhenRestHasSessionAffinity() throws Exception {
-        defaultHttpRequest = getHttpRequest("/service", "/path");
         microservice = mock(Microservice.class);
         RestApi api = getRestApiWithAffinityPutInMicroserivceSearch("service", "path");
 
-        HttpProxyFilter filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
-        filter.requestPre(defaultHttpRequest);
+        filter().requestPre(defaultHttpRequest);
+        HttpResponse actual = (HttpResponse) filter.responsePre(validHttpResponse());
 
-        HttpResponse actual = (HttpResponse) filter.responsePre(getHttpResponseOK());
-
-        assertEquals(getExpectedCookie(api), actual.headers().get(COOKIE));
+        assertEquals(expectedCookie(api), getHeaders(actual).get(SET_COOKIE));
     }
 
     @Test
     public void shouldInvokeSearchByIDWhenCookiePresent() throws Exception {
-        defaultHttpRequest = getHttpRequest("/service", "/path");
-        defaultHttpRequest.headers().add(COOKIE, ServerCookieEncoder.encode("x-" + "/service" + "/path", Integer.toString(1)));
+        addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Integer.toString(1)));
         microservice = getMockMicroserviceWithIDRestApi("service", "path", "10.10.2.1/25", 1);
 
-        HttpProxyFilter filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
-        filter.requestPre(defaultHttpRequest);
+        filter().requestPre(defaultHttpRequest);
 
         verify(microservice).searchApiById(anyLong());
     }
 
     @Test
     public void shouldReturnCorrectAPIWhenMultipleAffinityHeldInCookie() throws Exception {
-        defaultHttpRequest = getDefaultHttpRequestWithMultipleCookieValues("/service", "/path", "/other", "/diff");
-        microservice = getLocalMicroserviceAndJoinCloud();
+        microservice = createLocalMicroserviceAndJoinCloud();
 
         RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.10.2.1/25");
         setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1/123");
+        defaultHttpRequest = createRequestWithMultipleCookieValues("/service", "/path", "/other", "/diff", getRestApiId(remote));
 
-        HttpProxyFilter filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
-        filter.requestPre(defaultHttpRequest);
+        filter().requestPre(defaultHttpRequest);
 
-        String url = getMicroserviceRestApiUrl(remote);
+        String url = getRestApiUrl(remote);
         assertEquals(url, defaultHttpRequest.getUri());
     }
 
     @Test
     public void shouldReturn404WhenSearchesReturnNull() throws Exception {
-        defaultHttpRequest = getHttpRequest("/service", "/path");
-        microservice = getLocalMicroserviceAndJoinCloud();
+        microservice = createLocalMicroserviceAndJoinCloud();
 
         setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1/123");
-
-        HttpProxyFilter filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
-        HttpResponse response = filter.requestPre(defaultHttpRequest);
+        HttpResponse response = filter().requestPre(defaultHttpRequest);
 
         DefaultFullHttpResponse expected = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
         assertEquals(expected.toString(), response.toString());
     }
 
-    private String getMicroserviceRestApiUrl(RemoteMicroservice remote) {
-        return remote.getApis().iterator().next().getUrl();
+    @Test
+    public void should302WhenAffiniteRestApiIsFaulty() throws Exception {
+        defaultHttpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://127.0.0.1:9999/service/path");
+        microservice = createLocalMicroserviceAndJoinCloud();
+
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1/123");
+        addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Long.toString(getRestApiId(remote))));
+        makeApiFaulty(remote);
+
+        HttpResponse response = filter().requestPre(defaultHttpRequest);
+
+        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
+        assertTrue(getHeaders(response).contains(LOCATION));
+        assertEquals(defaultHttpRequest.getUri(), getHeaders(response).get(LOCATION));
+        assertFalse(defaultHttpRequest.headers().contains(encodeCookie("x-service/path", Long.toString(getRestApiId(remote)))));
     }
 
-    private Microservice getLocalMicroserviceAndJoinCloud() throws Exception {
+    @Test
+    public void should302On500ResponseFromAnyMicroservice() throws Exception {
+        microservice = mock(Microservice.class);
+
+        filter().requestPre(defaultHttpRequest);
+        HttpResponse response = (HttpResponse) filter.responsePre(failedHttpResponse());
+
+        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
+        assertTrue(getHeaders(response).contains(LOCATION));
+        assertEquals(defaultHttpRequest.getUri(), getHeaders(response).get(LOCATION));
+    }
+
+    private String encodeCookie(String name, String value) {
+        return ServerCookieEncoder.encode(name, value);
+    }
+
+    private void addHeadersToRequest(HttpRequest request, String name, String value) {
+        request.headers().add(name, value);
+    }
+
+    private RestApi makeApiFaulty(RemoteMicroservice remote) {
+        RestApi api = getRestApi(remote);
+        api.markFaulty();
+        return api;
+    }
+
+    private HttpHeaders getHeaders(HttpResponse response) {
+        return response.headers();
+    }
+
+    private long getRestApiId(RemoteMicroservice remote) {
+        return getRestApi(remote).getId();
+    }
+
+    private String getRestApiUrl(RemoteMicroservice remote) {
+        return getRestApi(remote).getUrl();
+    }
+
+    private RestApi getRestApi(RemoteMicroservice remote) {
+        return remote.getApis().iterator().next();
+    }
+
+    private Microservice createLocalMicroserviceAndJoinCloud() throws Exception {
         Microservice ms = new Microservice("local");
         ms.join(cloud);
         return ms;
     }
 
-    private DefaultHttpRequest getHttpRequestWithCookiesMakingNewRequest(String reqName, String reqValue, String cookieName, String cookiePath) {
-        DefaultHttpRequest request = getHttpRequest(reqName, reqValue);
-        Cookie cookieOne = new DefaultCookie("x-" + cookieName + cookiePath, Integer.toString(2));
-        request.headers().add(COOKIE, ClientCookieEncoder.encode(cookieOne));
-        return request;
-    }
-
-    private DefaultHttpRequest getDefaultHttpRequestWithMultipleCookieValues(String name, String path, String otherName, String otherPath) {
-        DefaultHttpRequest request = getHttpRequest(name, path);
-        Cookie cookieOne = new DefaultCookie("x-" + name + path, Integer.toString(2));
-        Cookie cookieTwo = new DefaultCookie("x-" + otherName + otherPath, Integer.toString(1));
-        request.headers().add(COOKIE, ClientCookieEncoder.encode(cookieOne, cookieTwo));
+    private DefaultHttpRequest createRequestWithMultipleCookieValues(String name, String path, String otherName, String otherPath, long restApiId) {
+        DefaultHttpRequest request = httpRequest(name, path);
+        Cookie cookieOne = new DefaultCookie(String.format("x-%s%s", name, path), Long.toString(restApiId));
+        Cookie cookieTwo = new DefaultCookie(String.format("x-%s%s", otherName, otherPath), Integer.toString(1));
+        addHeadersToRequest(request, COOKIE, ClientCookieEncoder.encode(cookieOne, cookieTwo));
         return request;
     }
 
@@ -140,20 +186,28 @@ public class HttpProxyFilterTest {
         return Mockito.verify(microservice).searchApi(service, path);
     }
 
-    private String getExpectedCookie(RestApi api) {
-        return String.format("x-%s/%s=%s", api.getName(), api.getPath(), api.getId());
+    private String expectedCookie(RestApi api) {
+        return String.format("x-%s/%s=%s; Path=/", api.getName(), api.getPath(), api.getId());
     }
 
-    private DefaultFullHttpResponse getHttpResponseOK() {
-        return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    private DefaultFullHttpResponse validHttpResponse() {
+        return makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
     }
 
-    private DefaultHttpRequest getHttpRequest(String name, String path) {
-        return new DefaultHttpRequest(HttpVersion.HTTP_1_0, HttpMethod.GET, name + path);
+    private DefaultFullHttpResponse failedHttpResponse() {
+        return makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private DefaultFullHttpResponse makeHttpResponse(HttpVersion version, HttpResponseStatus status) {
+        return new DefaultFullHttpResponse(version, status);
+    }
+
+    private DefaultHttpRequest httpRequest(String name, String path) {
+        return new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, name + path);
     }
 
     private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest, Microservice microservice) {
-        return new HttpProxyFilter(httpRequest, microservice);
+        return new HttpProxyFilter(httpRequest, microservice, retryLogic);
     }
 
     private RemoteMicroservice setupRemoteMicroserviceWithAffinity(String name, String endpoint, String host) {
@@ -161,7 +215,6 @@ public class HttpProxyFilterTest {
         RestApi restApi = new RestApi(name, endpoint, 9999).onHost(host).withAffinity();
         RemoteMicroservice remote = new RemoteMicroservice(name, agent, toSet(restApi));
         return addRemoteAgentToCloudListAndMicroserviceToLocalList(name, remote, restApi);
-
     }
 
     private RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
@@ -213,5 +266,12 @@ public class HttpProxyFilterTest {
 
     private RemoteAgent newRemoteAgent() {
         return newRemoteAgent(UUID.randomUUID());
+    }
+
+    private HttpFilters filter() {
+        if (filter == null)
+            filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
+
+        return filter;
     }
 }

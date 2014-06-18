@@ -21,7 +21,7 @@
           <transformers>
             <transformer>
               <manifestEntries>
-                <Main-Class>Main</Main-Class>
+                <Main-Class>com.msnos.proxy.Main</Main-Class>
               </manifestEntries>
             </transformer>
           </transformers>
