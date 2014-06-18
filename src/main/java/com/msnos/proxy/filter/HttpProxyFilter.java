@@ -46,9 +46,11 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
                 }
                 if (rest != null) {
                     if (rest.isFaulty()) {
-                        response = createResponse(FOUND);
-                        response.headers().add(LOCATION, originalRequest.getUri());
-                        if (hasCorrectCookie(request)) cookies.remove(createCookie(rest));
+                        response = createRetry();
+                        if (hasCorrectCookie(request)) {
+                            DefaultCookie cookie = createDeleteCookie(rest);
+                            setCookieOnResponse(response, cookie);
+                        }
                     } else {
                         request.setUri(rest.getUrl());
                     }
@@ -67,16 +69,19 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
     public HttpObject responsePre(HttpObject httpObject) {
         if (httpObject instanceof HttpResponse) {
             HttpResponse response = (HttpResponse) httpObject;
+            if (response.getStatus().equals(HttpResponseStatus.INTERNAL_SERVER_ERROR) && rest != null) {
+                if (rest.getTempFaults() < 4) rest.markTempFault();
+                else rest.markFaulty();
+            }
             if (retry.isWorth(response)) {
-                response.setStatus(FOUND);
-                response.headers().add(LOCATION, originalRequest.getUri());
+                response = createRetry();
             } else {
                 if (rest != null && rest.hasAffinity()) {
                     DefaultCookie cookie = createCookie(rest);
                     if (cookies == null) cookies = new HashSet<Cookie>();
                     if (!cookies.contains(cookie)) {
                         cookie.setPath("/");
-                        response.headers().add(SET_COOKIE, ServerCookieEncoder.encode(cookie));
+                        setCookieOnResponse(response, cookie);
                     }
                 }
             }
@@ -105,8 +110,19 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
         return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(createPath(httpRequest));
     }
 
+    private String encodeCookie(DefaultCookie cookie) {
+        return ServerCookieEncoder.encode(cookie);
+    }
+
     private DefaultCookie createCookie(RestApi rest) {
         return new DefaultCookie(String.format("x-%s/%s", rest.getName(), rest.getPath()), Long.toString(rest.getId()));
+    }
+
+    private DefaultCookie createDeleteCookie(RestApi rest) {
+        DefaultCookie cookie = createCookie(rest);
+        cookies.remove(cookie);
+        cookie.setMaxAge(0);
+        return cookie;
     }
 
     private String createPath(HttpRequest httpRequest) throws URISyntaxException {
@@ -121,5 +137,16 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
     private DefaultFullHttpResponse createResponse(HttpResponseStatus status) {
         return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
+    }
+
+    private void setCookieOnResponse(HttpResponse response, DefaultCookie cookie) {
+        response.headers().add(SET_COOKIE, encodeCookie(cookie));
+    }
+
+    private HttpResponse createRetry() {
+        HttpResponse response;
+        response = createResponse(FOUND);
+        response.headers().add(LOCATION, originalRequest.getUri());
+        return response;
     }
 }

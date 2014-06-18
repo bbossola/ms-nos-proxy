@@ -138,6 +138,29 @@ public class HttpProxyFilterTest {
         assertEquals(defaultHttpRequest.getUri(), getHeaders(response).get(LOCATION));
     }
 
+//    @Test
+//    public void shouldReturn500WhenNORestApiAvailable() throws Exception {
+//        microservice = createLocalMicroserviceAndJoinCloud();
+//
+//        HttpResponse response = (HttpResponse) filter().responsePre(filter().requestPre(defaultHttpRequest));
+//
+//        assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+//    }
+
+
+    @Test
+    public void shouldMarkRestApiTempFaultyAndRedirectWhen500() throws Exception {
+        microservice = createLocalMicroserviceAndJoinCloud();
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1/123");
+
+        filter().requestPre(defaultHttpRequest);
+        HttpResponse response = (HttpResponse) filter().responsePre(failedHttpResponse());
+
+        assertEquals(1, getRestApi(remote).getTempFaults());
+        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
+
+    }
+
     private String encodeCookie(String name, String value) {
         return ServerCookieEncoder.encode(name, value);
     }
