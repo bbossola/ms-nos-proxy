@@ -2,7 +2,7 @@ package com.msnos.proxy.filter;
 
 import io.netty.handler.codec.http.HttpResponse;
 
-public class RetryLogic {
+class RetryLogic {
 
     public boolean isWorth(HttpResponse response) {
         boolean result = false;

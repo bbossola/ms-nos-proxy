@@ -33,13 +33,11 @@ public class HttpProxyFilterTest {
     private HttpRequest defaultHttpRequest;
     private Microservice microservice;
     private Cloud cloud;
-    private RetryLogic retryLogic;
     private HttpProxyFilter filter;
 
     @Before
     public void setUp() throws Exception {
         cloud = mock(Cloud.class);
-        retryLogic = new RetryLogic();
         defaultHttpRequest = httpRequest("/service", "/path");
         filter = null;
     }
@@ -105,7 +103,7 @@ public class HttpProxyFilterTest {
         setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1/123");
         HttpResponse response = filter().requestPre(defaultHttpRequest);
 
-        DefaultFullHttpResponse expected = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
+        DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
         assertEquals(expected.toString(), response.toString());
     }
 
@@ -138,16 +136,6 @@ public class HttpProxyFilterTest {
         assertEquals(defaultHttpRequest.getUri(), getHeaders(response).get(LOCATION));
     }
 
-//    @Test
-//    public void shouldReturn500WhenNORestApiAvailable() throws Exception {
-//        microservice = createLocalMicroserviceAndJoinCloud();
-//
-//        HttpResponse response = (HttpResponse) filter().responsePre(filter().requestPre(defaultHttpRequest));
-//
-//        assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR, response.getStatus());
-//    }
-
-
     @Test
     public void shouldMarkRestApiTempFaultyAndRedirectWhen500() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
@@ -158,7 +146,33 @@ public class HttpProxyFilterTest {
 
         assertEquals(1, getRestApi(remote).getTempFaults());
         assertEquals(HttpResponseStatus.FOUND, response.getStatus());
+    }
 
+    @Test
+    public void shouldNOTServeClientApiMarkedAsHealthCheck() throws Exception {
+        microservice = createLocalMicroserviceAndJoinCloud();
+
+        setupRemoteMicroserviceWithHealthCheckStatus("service", "path", "11.14.2.1/123");
+        HttpResponse response = filter().requestPre(defaultHttpRequest);
+
+        DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
+        assertEquals(expected.toString(), response.toString());
+    }
+
+//    @Test
+//    public void shouldReturn500WhenNORestApiAvailable() throws Exception {
+//        microservice = createLocalMicroserviceAndJoinCloud();
+//
+//        HttpResponse response = (HttpResponse) filter().responsePre(filter().requestPre(defaultHttpRequest));
+//
+//        assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+//    }
+
+    private RemoteMicroservice setupRemoteMicroserviceWithHealthCheckStatus(String name, String endpoint, String host) {
+        RemoteAgent agent = newRemoteAgent();
+        RestApi restApi = new RestApi(name, endpoint, 9999).onHost(host).asHealthCheck();
+        RemoteMicroservice remote = new RemoteMicroservice(name, agent, toSet(restApi));
+        return addRemoteAgentToCloudListAndMicroserviceToLocalList(name, remote, restApi);
     }
 
     private String encodeCookie(String name, String value) {
@@ -230,7 +244,7 @@ public class HttpProxyFilterTest {
     }
 
     private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest, Microservice microservice) {
-        return new HttpProxyFilter(httpRequest, microservice, retryLogic);
+        return new HttpProxyFilter(httpRequest, microservice);
     }
 
     private RemoteMicroservice setupRemoteMicroserviceWithAffinity(String name, String endpoint, String host) {

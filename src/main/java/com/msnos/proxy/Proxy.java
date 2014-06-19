@@ -1,7 +1,6 @@
 package com.msnos.proxy;
 
 import com.msnos.proxy.filter.HttpProxyFilter;
-import com.msnos.proxy.filter.RetryLogic;
 import com.workshare.msnos.usvc.Microservice;
 import io.netty.handler.codec.http.HttpRequest;
 import org.littleshoot.proxy.HttpFilters;
@@ -14,11 +13,9 @@ import java.net.UnknownHostException;
 public class Proxy {
 
     private final Microservice microservice;
-    private RetryLogic retryLogic;
 
     public Proxy(Microservice microservice) {
         this.microservice = microservice;
-        this.retryLogic = new RetryLogic();
     }
 
     public HttpProxyServer start(int port) throws UnknownHostException {
@@ -32,7 +29,7 @@ public class Proxy {
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest request) {
-                return new HttpProxyFilter(request, microservice, retryLogic);
+                return new HttpProxyFilter(request, microservice);
             }
         };
     }
