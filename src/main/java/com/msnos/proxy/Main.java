@@ -14,6 +14,7 @@ public class Main {
         Microservice microservice = new Microservice(name);
         Cloud nimbus = new Cloud(new UUID(111, 222));
 
+        System.setProperty("temp.retries", "4");
         microservice.join(nimbus);
 
         RestApi restApi = new RestApi(name, "test", port);

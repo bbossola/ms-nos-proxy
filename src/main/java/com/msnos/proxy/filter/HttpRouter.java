@@ -1,8 +1,12 @@
 package com.msnos.proxy.filter;
 
+import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RestApi;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;
+import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,15 +19,13 @@ import static io.netty.handler.codec.http.HttpHeaders.Names.*;
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
 
 class HttpRouter {
-
     private final Logger log = LoggerFactory.getLogger(HttpRouter.class);
     private final Microservice microservice;
     private final HttpRequest originalRequest;
+    private final RetryLogic retry;
 
     private RestApi rest;
     private Set<Cookie> cookies;
-
-    private final RetryLogic retry;
 
     public HttpRouter(HttpRequest originalRequest, Microservice microservice) {
         this.originalRequest = originalRequest;
@@ -34,6 +36,8 @@ class HttpRouter {
     public HttpResponse routeClient(HttpRequest request) {
         HttpResponse response = null;
         try {
+            if (request.getUri().contains("admin/ping")) return pong();
+            if (request.getUri().contains("admin/routes")) return routes();
             if (hasCorrectCookie(request)) {
                 cookies = CookieDecoder.decode(request.headers().get(COOKIE));
                 rest = routeCookiedRequest(request, cookies);
@@ -81,9 +85,31 @@ class HttpRouter {
     }
 
     private RestApi routeRequest(HttpRequest httpRequest) throws Exception {
+
         String[] pathArray = getPathArray(httpRequest);
         if (pathArray.length < 3) return null;
         return microservice.searchApi(pathArray[1], pathArray[2]);
+    }
+
+    private HttpResponse routes() {
+        StringBuilder builder = new StringBuilder();
+        for (RestApi rest : microservice.getAllRemoteRestApis()) {
+            if (rest.isHealthCheck()) continue;
+            builder.append(Json.toJsonString(rest)).append("\n");
+        }
+        String resp = builder.toString();
+        ByteBuf b = Unpooled.buffer(resp.length());
+        DefaultFullHttpResponse routes = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, OK, b.writeBytes(resp.getBytes(CharsetUtil.UTF_8)));
+        routes.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
+        return routes;
+    }
+
+    private HttpResponse pong() {
+        String resp = "<h1>Pong</h1>";
+        ByteBuf b = Unpooled.buffer(resp.length());
+        DefaultFullHttpResponse pong = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, OK, b.writeBytes(resp.getBytes(CharsetUtil.UTF_8)));
+        pong.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
+        return pong;
     }
 
     private RestApi routeCookiedRequest(HttpRequest httpRequest, Set<Cookie> cookies) throws Exception {
