@@ -2,6 +2,7 @@ package com.msnos.proxy.filter;
 
 import com.workshare.msnos.core.Cloud;
 import com.workshare.msnos.core.Message;
+import com.workshare.msnos.core.MessageBuilder;
 import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.core.payloads.QnePayload;
 import com.workshare.msnos.core.protocols.ip.Network;
@@ -256,7 +257,7 @@ public class HttpProxyFilterTest {
 
     private RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
         putRemoteAgentInCloudAgentsList(remote.getAgent());
-        simulateMessageFromCloud(new Message(Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden(), 2, false, new QnePayload(name, restApi)));
+        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden()).with(2).reliable(false).with(new QnePayload(name, restApi)).make());
         return remote;
     }
 
