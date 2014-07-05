@@ -3,6 +3,8 @@ package com.msnos.proxy.filter;
 import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RestApi;
+import com.workshare.msnos.usvc.RestApi.Type;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;
@@ -44,7 +46,7 @@ class HttpRouter {
             } else {
                 rest = routeRequest(request);
             }
-            if (rest != null && !rest.isHealthCheck()) {
+            if (rest != null && rest.getType() == Type.PUBLIC) {
                 if (rest.isFaulty()) {
                     response = createRetry();
                     if (hasCorrectCookie(request)) {
@@ -94,7 +96,7 @@ class HttpRouter {
     private HttpResponse routes() {
         StringBuilder builder = new StringBuilder();
         for (RestApi rest : microservice.getAllRemoteRestApis()) {
-            if (rest.isHealthCheck()) continue;
+            if (rest.getType() == Type.HEALTHCHECK) continue;
             builder.append(Json.toJsonString(rest)).append("\n");
         }
         String resp = builder.toString();

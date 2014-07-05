@@ -158,7 +158,18 @@ public class HttpProxyFilterTest {
     public void shouldNOTServeClientApiMarkedAsHealthCheck() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
 
-        setupRemoteMicroserviceWithHealthCheckStatus("service", "path", "11.14.2.1/123");
+        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1/123", RestApi.Type.HEALTHCHECK);
+        HttpResponse response = filter().requestPre(defaultHttpRequest);
+
+        DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
+        assertEquals(expected.toString(), response.toString());
+    }
+
+    @Test
+    public void shouldNOTServeClientApiMarkedAsInternal() throws Exception {
+        microservice = createLocalMicroserviceAndJoinCloud();
+
+        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1/123", RestApi.Type.INTERNAL);
         HttpResponse response = filter().requestPre(defaultHttpRequest);
 
         DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
@@ -174,9 +185,9 @@ public class HttpProxyFilterTest {
 //        assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR, response.getStatus());
 //    }
 
-    private RemoteMicroservice setupRemoteMicroserviceWithHealthCheckStatus(String name, String endpoint, String host) {
+    private RemoteMicroservice setupRemoteMicroserviceWithApiAs(String name, String endpoint, String host, RestApi.Type type) {
+        RestApi restApi = new RestApi(name, endpoint, 9999, host, type, false);
         RemoteAgent agent = newRemoteAgent();
-        RestApi restApi = new RestApi(name, endpoint, 9999).onHost(host).asHealthCheck();
         RemoteMicroservice remote = new RemoteMicroservice(name, agent, toSet(restApi));
         return addRemoteAgentToCloudListAndMicroserviceToLocalList(name, remote, restApi);
     }
