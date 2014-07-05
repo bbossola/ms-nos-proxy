@@ -101,14 +101,6 @@ public class HttpRouterTest {
         return new DefaultFullHttpResponse(version, status);
     }
 
-    private RestApi getRestApi(RemoteMicroservice remote) {
-        return remote.getApis().iterator().next();
-    }
-
-    private String expectedCookie(RestApi api) {
-        return String.format("x-%s/%s=%s; Path=/", api.getName(), api.getPath(), api.getId());
-    }
-
     private String getBodyTextFromResponse(DefaultFullHttpResponse response) {
         StringBuilder actual = new StringBuilder();
         for (int i = 0; i < response.content().capacity(); i++) {
