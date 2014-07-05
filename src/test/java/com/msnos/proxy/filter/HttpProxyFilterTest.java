@@ -1,6 +1,7 @@
 package com.msnos.proxy.filter;
 
 import com.workshare.msnos.core.Cloud;
+import com.workshare.msnos.core.Iden;
 import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.MessageBuilder;
 import com.workshare.msnos.core.RemoteAgent;
@@ -29,6 +30,7 @@ import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 
+@SuppressWarnings("deprecation")
 public class HttpProxyFilterTest {
 
     private HttpRequest defaultHttpRequest;
@@ -39,6 +41,9 @@ public class HttpProxyFilterTest {
     @Before
     public void setUp() throws Exception {
         cloud = mock(Cloud.class);
+        Iden iden = new Iden(Iden.Type.CLD, UUID.randomUUID());
+        when(cloud.getIden()).thenReturn(iden);
+
         defaultHttpRequest = httpRequest("/service", "/path");
         filter = null;
     }
@@ -257,7 +262,7 @@ public class HttpProxyFilterTest {
 
     private RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
         putRemoteAgentInCloudAgentsList(remote.getAgent());
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden()).with(2).reliable(false).with(new QnePayload(name, restApi)).make());
+        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent(), cloud).with(new QnePayload(name, restApi)).make());
         return remote;
     }
 

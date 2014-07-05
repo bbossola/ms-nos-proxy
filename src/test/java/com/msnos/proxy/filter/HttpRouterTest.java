@@ -1,7 +1,15 @@
 package com.msnos.proxy.filter;
 
+<<<<<<< HEAD
 import com.workshare.msnos.core.*;
 import com.workshare.msnos.core.payloads.FltPayload;
+=======
+import com.workshare.msnos.core.Cloud;
+import com.workshare.msnos.core.Iden;
+import com.workshare.msnos.core.Message;
+import com.workshare.msnos.core.MessageBuilder;
+import com.workshare.msnos.core.RemoteAgent;
+>>>>>>> Fixes to broken tests due to core Message refactoring
 import com.workshare.msnos.core.payloads.QnePayload;
 import com.workshare.msnos.core.protocols.ip.Network;
 import com.workshare.msnos.soup.json.Json;
@@ -31,7 +39,8 @@ public class HttpRouterTest {
     @Before
     public void setUp() throws Exception {
         cloud = mock(Cloud.class);
-        when(cloud.getIden()).thenReturn(new Iden(Iden.Type.CLD, new UUID(111, 222)));
+        Iden iden = new Iden(Iden.Type.CLD, UUID.randomUUID());
+        when(cloud.getIden()).thenReturn(iden);
     }
 
     @Test
@@ -118,7 +127,7 @@ public class HttpRouterTest {
 
     private RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
         putRemoteAgentInCloudAgentsList(remote.getAgent());
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden()).with(2).reliable(false).with(new QnePayload(name, restApi)).make());
+        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent(), cloud).with(new QnePayload(name, restApi)).make());
         return remote;
     }
 
