@@ -4,7 +4,6 @@ import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RestApi;
 import com.workshare.msnos.usvc.RestApi.Type;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;

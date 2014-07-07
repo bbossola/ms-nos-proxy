@@ -1,10 +1,6 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.core.Cloud;
-import com.workshare.msnos.core.Iden;
-import com.workshare.msnos.core.Message;
-import com.workshare.msnos.core.MessageBuilder;
-import com.workshare.msnos.core.RemoteAgent;
+import com.workshare.msnos.core.*;
 import com.workshare.msnos.core.payloads.QnePayload;
 import com.workshare.msnos.core.protocols.ip.Network;
 import com.workshare.msnos.usvc.Microservice;
@@ -175,15 +171,6 @@ public class HttpProxyFilterTest {
         DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
         assertEquals(expected.toString(), response.toString());
     }
-
-//    @Test
-//    public void shouldReturn500WhenNORestApiAvailable() throws Exception {
-//        microservice = createLocalMicroserviceAndJoinCloud();
-//
-//        HttpResponse response = (HttpResponse) filter().responsePre(filter().requestPre(defaultHttpRequest));
-//
-//        assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR, response.getStatus());
-//    }
 
     private RemoteMicroservice setupRemoteMicroserviceWithApiAs(String name, String endpoint, String host, RestApi.Type type) {
         RestApi restApi = new RestApi(name, endpoint, 9999, host, type, false);
