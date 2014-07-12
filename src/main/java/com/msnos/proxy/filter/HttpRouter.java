@@ -92,8 +92,11 @@ class HttpRouter {
         return microservice.searchApi(pathArray[1], pathArray[2]);
     }
 
+    // @Rhys please fix
     private HttpResponse routes() {
-        StringBuilder builder = new StringBuilder();
+        return createResponse(INTERNAL_SERVER_ERROR);
+
+/*        StringBuilder builder = new StringBuilder();
         for (RestApi rest : microservice.getAllRemoteRestApis()) {
             if (rest.getType() == Type.HEALTHCHECK) continue;
             builder.append(Json.toJsonString(rest)).append("\n");
@@ -103,7 +106,7 @@ class HttpRouter {
         DefaultFullHttpResponse routes = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, OK, b.writeBytes(resp.getBytes(CharsetUtil.UTF_8)));
         routes.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
         return routes;
-    }
+*/    }
 
     private HttpResponse pong() {
         String resp = "<h1>Pong</h1>";
