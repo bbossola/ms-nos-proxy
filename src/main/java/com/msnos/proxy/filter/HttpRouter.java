@@ -1,23 +1,37 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.soup.json.Json;
-import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.RestApi;
-import com.workshare.msnos.usvc.RestApi.Type;
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.LOCATION;
+import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
+import static io.netty.handler.codec.http.HttpResponseStatus.FOUND;
+import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
+import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
+import static io.netty.handler.codec.http.HttpResponseStatus.OK;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.CookieDecoder;
+import io.netty.handler.codec.http.DefaultCookie;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.ServerCookieEncoder;
 import io.netty.util.CharsetUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.*;
-import static io.netty.handler.codec.http.HttpResponseStatus.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.workshare.msnos.usvc.Microservice;
+import com.workshare.msnos.usvc.api.RestApi;
+import com.workshare.msnos.usvc.api.RestApi.Type;
 
 class HttpRouter {
     private final Logger log = LoggerFactory.getLogger(HttpRouter.class);

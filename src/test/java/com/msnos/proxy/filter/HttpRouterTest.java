@@ -35,7 +35,7 @@ import com.workshare.msnos.core.protocols.ip.Network;
 import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.RestApi;
+import com.workshare.msnos.usvc.api.RestApi;
 
 public class HttpRouterTest {
 
@@ -66,7 +66,7 @@ public class HttpRouterTest {
     public void shouldReturnListWhenAdminRoutesInURI() throws Exception {
         DefaultHttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "127.0.0.1:8881/admin/routes");
         Microservice microservice = createLocalMicroserviceAndJoinCloud();
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.20.10.102/25");
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.20.10.102");
 
         HttpRouter router = new HttpRouter(request, microservice);
         DefaultFullHttpResponse response = (DefaultFullHttpResponse) router.routeClient(request);
@@ -82,7 +82,7 @@ public class HttpRouterTest {
         DefaultHttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://127.0.0.1:8881/service/path");
 
         Microservice microservice = createLocalMicroserviceAndJoinCloud();
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.20.10.102/25");
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.20.10.102");
 
         HttpRouter router = new HttpRouter(request, microservice);
         simulateMessageFromCloud(new MessageBuilder(Message.Type.FLT, cloud.getIden(), microservice.getAgent().getIden()).with(2).reliable(false).with(new FltPayload(remote.getAgent().getIden())).make());
