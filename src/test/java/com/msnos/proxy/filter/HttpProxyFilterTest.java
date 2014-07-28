@@ -46,7 +46,7 @@ public class HttpProxyFilterTest {
 
     @Test
     public void shouldInvokeSearchWithCorrectParameters() throws Exception {
-        microservice = getMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13/25");
+        microservice = getMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13/123");
 
         filter().requestPre(defaultHttpRequest);
 
@@ -56,7 +56,7 @@ public class HttpProxyFilterTest {
 
     @Test
     public void shouldPopulateCorrectlyTheRequestURI() throws Exception {
-        microservice = getMockMicroserviceWithRestApi("name", "path", 1111, "10.10.20.13/25");
+        microservice = getMockMicroserviceWithRestApi("name", "path", 1111, "10.10.20.13/123");
 
         filter().requestPre(defaultHttpRequest);
 
@@ -77,7 +77,7 @@ public class HttpProxyFilterTest {
     @Test
     public void shouldInvokeSearchByIDWhenCookiePresent() throws Exception {
         addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Integer.toString(1)));
-        microservice = getMockMicroserviceWithIDRestApi("service", "path", "10.10.2.1/25", 1);
+        microservice = getMockMicroserviceWithIDRestApi("service", "path", "10.10.2.1/123", 1);
 
         filter().requestPre(defaultHttpRequest);
 
@@ -88,8 +88,8 @@ public class HttpProxyFilterTest {
     public void shouldReturnCorrectAPIWhenMultipleAffinityHeldInCookie() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
 
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.10.2.1/25");
-        setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1/123");
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.10.2.1/123");
+        setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1");
         defaultHttpRequest = createRequestWithMultipleCookieValues("/service", "/path", "/other", "/diff", getRestApiId(remote));
 
         filter().requestPre(defaultHttpRequest);
@@ -102,7 +102,7 @@ public class HttpProxyFilterTest {
     public void shouldReturn404WhenSearchesReturnNull() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
 
-        setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1/123");
+        setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1");
         HttpResponse response = filter().requestPre(defaultHttpRequest);
 
         DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
@@ -114,7 +114,7 @@ public class HttpProxyFilterTest {
         defaultHttpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://127.0.0.1:9999/service/path");
         microservice = createLocalMicroserviceAndJoinCloud();
 
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1/123");
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
         addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Long.toString(getRestApiId(remote))));
         makeApiFaulty(remote);
 
@@ -157,7 +157,7 @@ public class HttpProxyFilterTest {
     public void shouldNOTServeClientApiMarkedAsHealthCheck() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
 
-        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1/123", RestApi.Type.HEALTHCHECK);
+        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1", RestApi.Type.HEALTHCHECK);
         HttpResponse response = filter().requestPre(defaultHttpRequest);
 
         DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
@@ -168,7 +168,7 @@ public class HttpProxyFilterTest {
     public void shouldNOTServeClientApiMarkedAsInternal() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
 
-        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1/123", RestApi.Type.INTERNAL);
+        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1", RestApi.Type.INTERNAL);
         HttpResponse response = filter().requestPre(defaultHttpRequest);
 
         DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
@@ -299,7 +299,7 @@ public class HttpProxyFilterTest {
     }
 
     private RestApi getRestApiWithAffinityPutInMicroserivceSearch(String name, String path) throws Exception {
-        RestApi api = new RestApi(name, path, 1111, "10.10.10.10/25").withAffinity();
+        RestApi api = new RestApi(name, path, 1111, "10.10.10.10/123").withAffinity();
         Mockito.when(microservice.searchApi(anyString(), anyString())).thenReturn(api);
         return api;
     }
