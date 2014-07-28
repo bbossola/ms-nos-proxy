@@ -127,10 +127,13 @@ public class HttpProxyFilterTest {
     }
 
     @Test
-    public void should302On500ResponseFromAnyMicroservice() throws Exception {
-        microservice = mock(Microservice.class);
+    public void should302On500ResponseFromAnyMicroserviceWhenAnotherApiAvailable() throws Exception {
+        microservice = createLocalMicroserviceAndJoinCloud();
+        setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1/123");
+        setupRemoteMicroserviceWithAffinity("service", "path", "11.222.2.121/123");
 
         filter().requestPre(defaultHttpRequest);
+
         HttpResponse response = (HttpResponse) filter.responsePre(failedHttpResponse());
 
         assertEquals(HttpResponseStatus.FOUND, response.getStatus());

@@ -1,5 +1,6 @@
 package com.msnos.proxy;
 
+import com.msnos.proxy.filter.AdminFilter;
 import com.msnos.proxy.filter.HttpProxyFilter;
 import com.workshare.msnos.usvc.Microservice;
 import io.netty.handler.codec.http.HttpRequest;
@@ -29,7 +30,11 @@ public class Proxy {
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest request) {
-                return new HttpProxyFilter(request, microservice);
+                if (request.getUri().contains("admin/ping") || request.getUri().contains("admin/routes")) {
+                    return new AdminFilter(request, microservice);
+                } else {
+                    return new HttpProxyFilter(request, microservice);
+                }
             }
         };
     }

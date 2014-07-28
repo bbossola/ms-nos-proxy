@@ -1,6 +1,5 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RestApi;
 import com.workshare.msnos.usvc.RestApi.Type;
@@ -18,6 +17,7 @@ import java.util.Set;
 
 import static io.netty.handler.codec.http.HttpHeaders.Names.*;
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 class HttpRouter {
     private final Logger log = LoggerFactory.getLogger(HttpRouter.class);
@@ -25,20 +25,20 @@ class HttpRouter {
     private final HttpRequest originalRequest;
     private final RetryLogic retry;
 
+    private int tempRetries;
     private RestApi rest;
     private Set<Cookie> cookies;
 
     public HttpRouter(HttpRequest originalRequest, Microservice microservice) {
         this.originalRequest = originalRequest;
         this.microservice = microservice;
-        retry = new RetryLogic();
+        this.tempRetries = Integer.parseInt(System.getProperty("temporary.api.retries", "4"));
+        this.retry = new RetryLogic();
     }
 
     public HttpResponse routeClient(HttpRequest request) {
         HttpResponse response = null;
         try {
-            if (request.getUri().contains("admin/ping")) return pong();
-            if (request.getUri().contains("admin/routes")) return routes();
             if (hasCorrectCookie(request)) {
                 cookies = CookieDecoder.decode(request.headers().get(COOKIE));
                 rest = routeCookiedRequest(request, cookies);
@@ -46,14 +46,14 @@ class HttpRouter {
                 rest = routeRequest(request);
             }
             if (rest != null && rest.getType() == Type.PUBLIC) {
-                if (rest.isFaulty()) {
+                if (!rest.isFaulty()) {
+                    request.setUri(rest.getUrl());
+                } else {
                     response = createRetry();
                     if (hasCorrectCookie(request)) {
                         DefaultCookie cookie = createDeleteCookie(rest);
                         setCookieOnResponse(response, cookie);
                     }
-                } else {
-                    request.setUri(rest.getUrl());
                 }
             } else {
                 response = createResponse(NOT_FOUND);
@@ -67,8 +67,15 @@ class HttpRouter {
 
     public HttpResponse serviceResponse(HttpResponse response) {
         if (response.getStatus().equals(HttpResponseStatus.INTERNAL_SERVER_ERROR) && rest != null) {
-            if (rest.getTempFaults() < 4) rest.markTempFault();
+            if (rest.getTempFaults() < tempRetries) rest.markTempFault();
             else rest.markFaulty();
+        }
+        try {
+            if (faultyResponseAndNoOtherRestApi(response)) {
+                return noWorkingRestApiResponse();
+            }
+        } catch (Exception e) {
+            log.error("Error returning momentarily faulty 500 response", e);
         }
         if (retry.isWorth(response)) {
             response = createRetry();
@@ -85,32 +92,26 @@ class HttpRouter {
         return response;
     }
 
-    private RestApi routeRequest(HttpRequest httpRequest) throws Exception {
+    private boolean faultyResponseAndNoOtherRestApi(HttpResponse response) throws Exception {
+        return response.getStatus().equals(INTERNAL_SERVER_ERROR) && routeRequest(originalRequest) == null;
+    }
 
+    private HttpResponse noWorkingRestApiResponse() throws URISyntaxException {
+        String[] pathArray = getPathArray(originalRequest);
+        String respString = String.format("All endpoints for %s/%s are momentarily faulty", pathArray[1], pathArray[2]);
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR, writeContent(respString));
+        response.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
+        return response;
+    }
+
+    private ByteBuf writeContent(String respString) {
+        return Unpooled.buffer(respString.length()).writeBytes(respString.getBytes(CharsetUtil.UTF_8));
+    }
+
+    private RestApi routeRequest(HttpRequest httpRequest) throws Exception {
         String[] pathArray = getPathArray(httpRequest);
         if (pathArray.length < 3) return null;
         return microservice.searchApi(pathArray[1], pathArray[2]);
-    }
-
-    private HttpResponse routes() {
-        StringBuilder builder = new StringBuilder();
-        for (RestApi rest : microservice.getAllRemoteRestApis()) {
-            if (rest.getType() == Type.HEALTHCHECK) continue;
-            builder.append(Json.toJsonString(rest)).append("\n");
-        }
-        String resp = builder.toString();
-        ByteBuf b = Unpooled.buffer(resp.length());
-        DefaultFullHttpResponse routes = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, OK, b.writeBytes(resp.getBytes(CharsetUtil.UTF_8)));
-        routes.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
-        return routes;
-    }
-
-    private HttpResponse pong() {
-        String resp = "<h1>Pong</h1>";
-        ByteBuf b = Unpooled.buffer(resp.length());
-        DefaultFullHttpResponse pong = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, OK, b.writeBytes(resp.getBytes(CharsetUtil.UTF_8)));
-        pong.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
-        return pong;
     }
 
     private RestApi routeCookiedRequest(HttpRequest httpRequest, Set<Cookie> cookies) throws Exception {
@@ -153,7 +154,7 @@ class HttpRouter {
     }
 
     private DefaultFullHttpResponse createResponse(HttpResponseStatus status) {
-        return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
+        return new DefaultFullHttpResponse(HTTP_1_1, status);
     }
 
     private void setCookieOnResponse(HttpResponse response, DefaultCookie cookie) {
