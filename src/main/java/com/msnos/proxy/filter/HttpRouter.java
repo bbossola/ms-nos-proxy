@@ -1,8 +1,8 @@
 package com.msnos.proxy.filter;
 
 import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.RestApi;
-import com.workshare.msnos.usvc.RestApi.Type;
+import com.workshare.msnos.usvc.api.RestApi;
+import com.workshare.msnos.usvc.api.RestApi.Type;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.*;

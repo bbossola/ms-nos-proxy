@@ -5,7 +5,7 @@ import com.workshare.msnos.core.payloads.QnePayload;
 import com.workshare.msnos.core.protocols.ip.Network;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.RestApi;
+import com.workshare.msnos.usvc.api.RestApi;
 import io.netty.handler.codec.http.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,14 +19,11 @@ import java.util.Set;
 import java.util.UUID;
 
 import static io.netty.handler.codec.http.HttpHeaders.Names.*;
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertTrue;
+import static junit.framework.TestCase.*;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 
-@SuppressWarnings("deprecation")
 public class HttpProxyFilterTest {
 
     private HttpRequest defaultHttpRequest;
