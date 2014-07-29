@@ -53,11 +53,11 @@ public class HttpProxyFilterTest {
 
     @Test
     public void shouldPopulateCorrectlyTheRequestURI() throws Exception {
-        microservice = getMockMicroserviceWithRestApi("name", "path", 1111, "10.10.20.13/123");
+        microservice = getMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13");
 
         filter().requestPre(defaultHttpRequest);
 
-        assertEquals("http://10.10.20.13:1111/name/path/", defaultHttpRequest.getUri());
+        assertEquals("http://10.10.20.13:1111/service/path/", defaultHttpRequest.getUri());
     }
 
     @Test
@@ -126,8 +126,8 @@ public class HttpProxyFilterTest {
     @Test
     public void should302On500ResponseFromAnyMicroserviceWhenAnotherApiAvailable() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
-        setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1/123");
-        setupRemoteMicroserviceWithAffinity("service", "path", "11.222.2.121/123");
+        setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
+        setupRemoteMicroserviceWithAffinity("service", "path", "11.222.2.121");
 
         filter().requestPre(defaultHttpRequest);
 
@@ -141,7 +141,8 @@ public class HttpProxyFilterTest {
     @Test
     public void shouldMarkRestApiTempFaultyAndRedirectWhen500() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1/123");
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
+        setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
 
         filter().requestPre(defaultHttpRequest);
         HttpResponse response = (HttpResponse) filter().responsePre(failedHttpResponse());
