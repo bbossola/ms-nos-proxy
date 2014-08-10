@@ -1,41 +1,47 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.core.*;
-import com.workshare.msnos.core.payloads.QnePayload;
-import com.workshare.msnos.core.protocols.ip.Network;
-import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.api.RestApi;
-import io.netty.handler.codec.http.*;
+import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.LOCATION;
+import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertTrue;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import io.netty.handler.codec.http.ClientCookieEncoder;
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.DefaultCookie;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.ServerCookieEncoder;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.HttpFilters;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import com.workshare.msnos.core.RemoteAgent;
+import com.workshare.msnos.usvc.Microservice;
+import com.workshare.msnos.usvc.RemoteMicroservice;
+import com.workshare.msnos.usvc.api.RestApi;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.*;
-import static junit.framework.TestCase.*;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
-
-public class HttpProxyFilterTest {
+public class HttpProxyFilterTest extends AbstractTest {
 
     private HttpRequest defaultHttpRequest;
     private Microservice microservice;
-    private Cloud cloud;
     private HttpProxyFilter filter;
 
     @Before
-    public void setUp() throws Exception {
-        cloud = mock(Cloud.class);
-        Iden iden = new Iden(Iden.Type.CLD, UUID.randomUUID());
-        when(cloud.getIden()).thenReturn(iden);
+    public void prepare() throws Exception {
+        super.prepare();
 
         defaultHttpRequest = httpRequest("/service", "/path");
         filter = null;
@@ -232,16 +238,8 @@ public class HttpProxyFilterTest {
         return String.format("x-%s/%s=%s; Path=/", api.getName(), api.getPath(), api.getId());
     }
 
-    private DefaultFullHttpResponse validHttpResponse() {
-        return makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-    }
-
     private DefaultFullHttpResponse failedHttpResponse() {
         return makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    private DefaultFullHttpResponse makeHttpResponse(HttpVersion version, HttpResponseStatus status) {
-        return new DefaultFullHttpResponse(version, status);
     }
 
     private DefaultHttpRequest httpRequest(String name, String path) {
@@ -250,36 +248,6 @@ public class HttpProxyFilterTest {
 
     private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest, Microservice microservice) {
         return new HttpProxyFilter(httpRequest, microservice);
-    }
-
-    private RemoteMicroservice setupRemoteMicroserviceWithAffinity(String name, String endpoint, String host) {
-        RemoteAgent agent = newRemoteAgent();
-        RestApi restApi = new RestApi(name, endpoint, 9999).onHost(host).withAffinity();
-        RemoteMicroservice remote = new RemoteMicroservice(name, agent, toSet(restApi));
-        return addRemoteAgentToCloudListAndMicroserviceToLocalList(name, remote, restApi);
-    }
-
-    private RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
-        putRemoteAgentInCloudAgentsList(remote.getAgent());
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent(), cloud).with(new QnePayload(name, restApi)).make());
-        return remote;
-    }
-
-    private RemoteAgent newRemoteAgent(final UUID uuid, Network... hosts) {
-        RemoteAgent remote = new RemoteAgent(uuid, cloud, new HashSet<Network>(Arrays.asList(hosts)));
-        putRemoteAgentInCloudAgentsList(remote);
-        return remote;
-    }
-
-    private Message simulateMessageFromCloud(final Message message) {
-        ArgumentCaptor<Cloud.Listener> cloudListener = ArgumentCaptor.forClass(Cloud.Listener.class);
-        verify(cloud, atLeastOnce()).addListener(cloudListener.capture());
-        cloudListener.getValue().onMessage(message);
-        return message;
-    }
-
-    private void putRemoteAgentInCloudAgentsList(RemoteAgent agent) {
-        Mockito.when(cloud.getRemoteAgents()).thenReturn(new HashSet<RemoteAgent>(Arrays.asList(agent)));
     }
 
     private Microservice getMockMicroserviceWithIDRestApi(String name, String path, String host, int port) throws Exception {
@@ -301,15 +269,7 @@ public class HttpProxyFilterTest {
         Mockito.when(microservice.searchApi(anyString(), anyString())).thenReturn(api);
         return api;
     }
-
-    private Set<RestApi> toSet(RestApi... restApi) {
-        return new HashSet<RestApi>(Arrays.asList(restApi));
-    }
-
-    private RemoteAgent newRemoteAgent() {
-        return newRemoteAgent(UUID.randomUUID());
-    }
-
+    
     private HttpFilters filter() {
         if (filter == null)
             filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
