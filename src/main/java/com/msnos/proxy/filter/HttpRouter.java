@@ -20,12 +20,13 @@ import static io.netty.handler.codec.http.HttpResponseStatus.*;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 class HttpRouter {
+
     private final Logger log = LoggerFactory.getLogger(HttpRouter.class);
     private final Microservice microservice;
     private final HttpRequest originalRequest;
     private final RetryLogic retry;
+    private final int tempRetries;
 
-    private int tempRetries;
     private RestApi rest;
     private Set<Cookie> cookies;
 
@@ -66,27 +67,36 @@ class HttpRouter {
     }
 
     public HttpResponse serviceResponse(HttpResponse response) {
-        if (response.getStatus().equals(HttpResponseStatus.INTERNAL_SERVER_ERROR) && rest != null) {
-            if (rest.getTempFaults() < tempRetries) rest.markTempFault();
-            else rest.markFaulty();
-        }
-        try {
-            if (faultyResponseAndNoOtherRestApi(response)) {
-                return noWorkingRestApiResponse();
+        if (response != null) {
+            if (response.getStatus().equals(HttpResponseStatus.INTERNAL_SERVER_ERROR) && rest != null) {
+                if (rest.getTempFaults() < tempRetries) rest.markTempFault();
+                else rest.markFaulty();
             }
-        } catch (Exception e) {
-            log.error("Error returning momentarily faulty 500 response", e);
-        }
-        if (retry.isWorth(response)) {
-            response = createRetry();
-        } else {
-            if (rest != null && rest.hasAffinity()) {
-                DefaultCookie cookie = createCookie(rest);
-                if (cookies == null) cookies = new HashSet<Cookie>();
-                if (!cookies.contains(cookie)) {
-                    cookie.setPath("/");
-                    setCookieOnResponse(response, cookie);
+            try {
+                if (faultyResponseAndNoOtherRestApi(response)) {
+                    return noWorkingRestApiResponse();
                 }
+            } catch (Exception e) {
+                log.error("Error returning momentarily faulty response", e);
+            }
+            if (retry.isWorth(response)) {
+                response = createRetry();
+            } else {
+                if (rest != null && rest.hasAffinity()) {
+                    DefaultCookie cookie = createCookie(rest);
+                    if (cookies == null) cookies = new HashSet<Cookie>();
+                    if (!cookies.contains(cookie)) {
+                        cookie.setPath("/");
+                        setCookieOnResponse(response, cookie);
+                    }
+                }
+            }
+        } else {
+            try {
+                response = noWorkingRestApiResponse();
+            } catch (URISyntaxException e) {
+                log.error("Error returning momentarily faulty response", e);
+                response = createResponse(INTERNAL_SERVER_ERROR);
             }
         }
         return response;
@@ -97,9 +107,8 @@ class HttpRouter {
     }
 
     private HttpResponse noWorkingRestApiResponse() throws URISyntaxException {
-        String[] pathArray = getPathArray(originalRequest);
-        String respString = String.format("All endpoints for %s/%s are momentarily faulty", pathArray[1], pathArray[2]);
-        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR, writeContent(respString));
+        String respString = String.format("All endpoints for %s are momentarily faulty", originalRequest.getUri());
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.GATEWAY_TIMEOUT, writeContent(respString));
         response.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
         return response;
     }
@@ -118,8 +127,13 @@ class HttpRouter {
         RestApi result = null;
         for (Cookie cookie : cookies)
             if (cookie.getName().contains(createPath(httpRequest))) {
-                result = microservice.searchApiById(Long.parseLong(cookie.getValue()));
-                break;
+                try {
+                    result = microservice.searchApiById(Long.parseLong(cookie.getValue()));
+                    break;
+                } catch (NumberFormatException e) {
+                    log.error("Invalid value for cookie {}", cookie.toString());
+                    cookies.remove(cookie);
+                }
             }
         return result;
     }

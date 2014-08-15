@@ -82,7 +82,7 @@ public class AdminFilterTest {
 
     private RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
         putRemoteAgentInCloudAgentsList(remote.getAgent());
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, remote.getAgent(), cloud).with(new QnePayload(name, restApi)).make());
+        simulateMessageFromCloud(new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden()).sequence(1234).with(new QnePayload(name, restApi)).make());
         return remote;
     }
 
