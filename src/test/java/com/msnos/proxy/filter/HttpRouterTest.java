@@ -63,11 +63,31 @@ public class HttpRouterTest extends AbstractTest {
 
     }
 
+    @Test
+    public void shouldRemoveCookieWhenAffiniteServiceFails() throws Exception {
+        Microservice microservice = createLocalMicroserviceAndJoinCloud();
+        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("remote", "something", "http://127.0.0.1:8881/remote/something");
+        DefaultHttpRequest request = createRequestWithCookie("service", "/path", 12313L);
+
+        HttpRouter router = new HttpRouter(request, microservice);
+
+        DefaultFullHttpResponse httpResponse = (DefaultFullHttpResponse) router.serviceResponse(router.routeClient(request));
+
+        assertEquals(httpResponse.headers().get("SET_COOKIE"), null);
+    }
+
     private DefaultHttpRequest createRequestWithMultipleCookieValuesOneBroken(String name, String path, String otherName, String otherPath, long restApiId) {
         DefaultHttpRequest request = httpRequest(name, path);
         Cookie cookieOne = new DefaultCookie(String.format("x-%s%s", name, path), Long.toString(restApiId));
         Cookie cookieTwo = new DefaultCookie(String.format("x-%s%s", otherName, otherPath), "timeToEXPLODE");
         addHeadersToRequest(request, COOKIE, ClientCookieEncoder.encode(cookieOne, cookieTwo));
+        return request;
+    }
+
+    private DefaultHttpRequest createRequestWithCookie(String name, String path, long restApiId) {
+        DefaultHttpRequest request = httpRequest(name, path);
+        Cookie cookieOne = new DefaultCookie(String.format("x-%s%s", name, path), Long.toString(restApiId));
+        addHeadersToRequest(request, COOKIE, ClientCookieEncoder.encode(cookieOne));
         return request;
     }
 

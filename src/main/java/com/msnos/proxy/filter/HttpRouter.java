@@ -21,7 +21,8 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 class HttpRouter {
 
-    private final Logger log = LoggerFactory.getLogger(HttpRouter.class);
+    private static final Logger log = LoggerFactory.getLogger(HttpRouter.class);
+
     private final Microservice microservice;
     private final HttpRequest originalRequest;
     private final RetryLogic retry;

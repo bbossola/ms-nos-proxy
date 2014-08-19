@@ -59,6 +59,7 @@ public class AdminFilter extends HttpFiltersAdapter {
         for (RemoteMicroservice route : routes) {
             Map<String, String> data = new HashMap<String, String>();
             for (RestApi rest : route.getApis()) {
+                if (rest.getType() == RestApi.Type.HEALTHCHECK) continue;
                 data.put("name", rest.getName());
                 data.put("path", rest.getPath());
                 data.put("host", rest.getHost());
@@ -66,6 +67,7 @@ public class AdminFilter extends HttpFiltersAdapter {
                 data.put("location", LocationFactory.DEFAULT.make(rest.getHost()).toString());
                 data.put("sessionAffinity", String.valueOf(rest.hasAffinity()));
             }
+            if (data.isEmpty()) continue;
             content.add(data);
         }
         String resp1 = gson.toJson(content);
