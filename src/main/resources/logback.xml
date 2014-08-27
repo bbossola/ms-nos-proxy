@@ -5,6 +5,12 @@
             <pattern>%-5p %m%n</pattern>
         </encoder>
     </appender>
+    <logger name="com.workshare.msnos.core" level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="protocol" level="ERROR"/>
+
     <logger name="org.apache.commons.logging" level="WARN">
         <appender-ref ref="CONSOLE"/>
     </logger>

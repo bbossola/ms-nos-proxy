@@ -1,27 +1,13 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.core.Cloud;
-import com.workshare.msnos.core.Message;
-import com.workshare.msnos.core.MessageBuilder;
-import com.workshare.msnos.core.RemoteAgent;
-import com.workshare.msnos.core.payloads.QnePayload;
-import com.workshare.msnos.core.protocols.ip.Network;
 import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.api.RestApi;
 import io.netty.handler.codec.http.*;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.UUID;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
 
 /**
  * Created by rhys on 28/07/14.

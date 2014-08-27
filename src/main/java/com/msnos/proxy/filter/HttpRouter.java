@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashSet;
 import java.util.Set;
 
 import static io.netty.handler.codec.http.HttpHeaders.Names.*;
@@ -41,24 +40,18 @@ class HttpRouter {
     public HttpResponse routeClient(HttpRequest request) {
         HttpResponse response = null;
         try {
-            if (hasCorrectCookie(request)) {
+            if (cookieMatchesUri(request)) {
                 cookies = CookieDecoder.decode(request.headers().get(COOKIE));
                 rest = routeCookiedRequest(request, cookies);
             } else {
                 rest = routeRequest(request);
             }
-            if (rest != null && rest.getType() == Type.PUBLIC) {
-                if (!rest.isFaulty()) {
-                    request.setUri(rest.getUrl());
-                } else {
-                    response = createRetry();
-                    if (hasCorrectCookie(request)) {
-                        DefaultCookie cookie = createDeleteCookie(rest);
-                        setCookieOnResponse(response, cookie);
-                    }
-                }
+            if (rest == null || rest.getType() != Type.PUBLIC) {
+                log.debug("Request search found no suitable rest api. ");
+                return createResponse(NOT_FOUND);
             } else {
-                response = createResponse(NOT_FOUND);
+                if (rest.isFaulty()) response = createRetry();
+                else request.setUri(rest.getUrl());
             }
         } catch (Exception ex) {
             log.error("General exception: ", ex);
@@ -68,36 +61,25 @@ class HttpRouter {
     }
 
     public HttpResponse serviceResponse(HttpResponse response) {
-        if (response != null) {
-            if (response.getStatus().equals(HttpResponseStatus.INTERNAL_SERVER_ERROR) && rest != null) {
-                if (rest.getTempFaults() < tempRetries) rest.markTempFault();
-                else rest.markFaulty();
+        try {
+            if (faultyResponseAndNoOtherRestApi(response)) {
+                return noWorkingRestApiResponse();
             }
-            try {
-                if (faultyResponseAndNoOtherRestApi(response)) {
-                    return noWorkingRestApiResponse();
-                }
-            } catch (Exception e) {
-                log.error("Error returning momentarily faulty response", e);
-            }
-            if (retry.isWorth(response)) {
-                response = createRetry();
-            } else {
-                if (rest != null && rest.hasAffinity()) {
-                    DefaultCookie cookie = createCookie(rest);
-                    if (cookies == null) cookies = new HashSet<Cookie>();
-                    if (!cookies.contains(cookie)) {
-                        cookie.setPath("/");
-                        setCookieOnResponse(response, cookie);
-                    }
-                }
-            }
+        } catch (Exception e) {
+            log.error("Error returning momentarily faulty response", e);
+        }
+        if (rest != null && retry.isWorth(response)) {
+            if (rest.getTempFaults() < tempRetries) rest.markTempFault();
+            else rest.markFaulty();
+            response = createRetry();
+            DefaultCookie cookie = createDeleteCookie(rest);
+            setCookieOnResponse(response, cookie);
         } else {
-            try {
-                response = noWorkingRestApiResponse();
-            } catch (URISyntaxException e) {
-                log.error("Error returning momentarily faulty response", e);
-                response = createResponse(INTERNAL_SERVER_ERROR);
+            if (rest != null && rest.hasAffinity()) {
+                DefaultCookie cookie = createCookie(rest);
+                if (cookies == null || !cookies.contains(cookie)) {
+                    setCookieOnResponse(response, cookie);
+                }
             }
         }
         return response;
@@ -107,7 +89,7 @@ class HttpRouter {
         return response.getStatus().equals(INTERNAL_SERVER_ERROR) && routeRequest(originalRequest) == null;
     }
 
-    private HttpResponse noWorkingRestApiResponse() throws URISyntaxException {
+    private HttpResponse noWorkingRestApiResponse() {
         String respString = String.format("All endpoints for %s are momentarily faulty", originalRequest.getUri());
         DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.GATEWAY_TIMEOUT, writeContent(respString));
         response.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
@@ -139,7 +121,7 @@ class HttpRouter {
         return result;
     }
 
-    private boolean hasCorrectCookie(HttpRequest httpRequest) throws URISyntaxException {
+    private boolean cookieMatchesUri(HttpRequest httpRequest) throws URISyntaxException {
         return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(createPath(httpRequest));
     }
 
@@ -148,12 +130,14 @@ class HttpRouter {
     }
 
     private DefaultCookie createCookie(RestApi rest) {
-        return new DefaultCookie(String.format("x-%s/%s", rest.getName(), rest.getPath()), Long.toString(rest.getId()));
+        DefaultCookie cookie = new DefaultCookie(String.format("x-%s/%s", rest.getName(), rest.getPath()), Long.toString(rest.getId()));
+        cookie.setPath("/");
+        return cookie;
     }
 
     private DefaultCookie createDeleteCookie(RestApi rest) {
         DefaultCookie cookie = createCookie(rest);
-        cookies.remove(cookie);
+        if (cookies != null && cookies.contains(cookie)) cookies.remove(cookie);
         cookie.setMaxAge(0);
         return cookie;
     }

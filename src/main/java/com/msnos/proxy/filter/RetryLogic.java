@@ -8,13 +8,16 @@ class RetryLogic {
         boolean result = false;
         String respCode = Integer.toString(response.getStatus().code());
         if (respCode.matches("4[0-9]+")) result = clientErr(response);
-        if (respCode.matches("5[0-9]+")) result = true;
+        if (respCode.matches("5[0-9][1-9]")) result = true;
         return result;
     }
 
     private boolean clientErr(HttpResponse response) {
         boolean result;
         switch (response.getStatus().code()) {
+            case 404:
+                result = true;
+                break;
             case 408:
                 result = true;
                 break;

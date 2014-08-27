@@ -30,7 +30,7 @@ public class RetryLogicTest {
 
     @Test
     public void shouldReturnTrueOnAll5xx() throws Exception {
-        assertTrue(retryLogic.isWorth(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR)));
+        assertTrue(retryLogic.isWorth(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY)));
     }
 
     private DefaultFullHttpResponse makeHttpResponse(HttpVersion version, HttpResponseStatus status) {

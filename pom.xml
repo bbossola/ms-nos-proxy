@@ -57,7 +57,7 @@
         <dependency>
             <groupId>org.littleshoot</groupId>
             <artifactId>littleproxy</artifactId>
-            <version>1.0.0-beta7</version>
+            <version>1.0.0-beta8</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>

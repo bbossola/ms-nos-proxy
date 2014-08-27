@@ -114,28 +114,13 @@ public class HttpProxyFilterTest extends AbstractTest {
     }
 
     @Test
-    public void should302On500ResponseFromAnyMicroserviceWhenAnotherApiAvailable() throws Exception {
-        microservice = createLocalMicroserviceAndJoinCloud();
-        setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
-        setupRemoteMicroserviceWithAffinity("service", "path", "11.222.2.121");
-
-        filter().requestPre(defaultHttpRequest);
-
-        HttpResponse response = (HttpResponse) filter.responsePre(failedHttpResponse());
-
-        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
-        assertTrue(getHeaders(response).contains(LOCATION));
-        assertEquals(defaultHttpRequest.getUri(), getHeaders(response).get(LOCATION));
-    }
-
-    @Test
-    public void shouldMarkRestApiTempFaultyAndRedirectWhen500() throws Exception {
+    public void shouldMarkRestApiTempFaultyAndRedirectWhen5xx() throws Exception {
         microservice = createLocalMicroserviceAndJoinCloud();
         RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
         setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
 
         filter().requestPre(defaultHttpRequest);
-        HttpResponse response = (HttpResponse) filter().responsePre(failedHttpResponse());
+        HttpResponse response = (HttpResponse) filter().responsePre(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY));
 
         assertEquals(1, getRestApi(remote).getTempFaults());
         assertEquals(HttpResponseStatus.FOUND, response.getStatus());

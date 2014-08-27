@@ -20,7 +20,7 @@ public class Main {
         RestApi restApi = new RestApi(name, "test", port);
         microservice.publish(restApi);
 
-        Proxy proxy = new Proxy(microservice);
-        proxy.start(port);
+        Proxy proxy = new Proxy(microservice, port);
+        proxy.start();
     }
 }

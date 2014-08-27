@@ -5,10 +5,15 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import org.littleshoot.proxy.HttpFiltersAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HttpProxyFilter extends HttpFiltersAdapter {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpRouter.class);
+
     private final HttpRouter router;
+
 
     public HttpProxyFilter(HttpRequest originalRequest, Microservice microservice) {
         super(originalRequest);
