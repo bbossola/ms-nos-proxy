@@ -44,9 +44,9 @@ public class Proxy {
     public void start() throws UnknownHostException {
         DefaultHttpProxyServer
                 .bootstrap()
-                .withName("404")
+                .withName("500")
                 .withPort(redirectPort)
-                .withFiltersSource(getAlwaysNotFoundFilter())
+                .withFiltersSource(getAlwaysUnavailableFilter())
                 .withTransparent(true)
                 .start();
 
@@ -99,14 +99,14 @@ public class Proxy {
         };
     }
 
-    private HttpFiltersSource getAlwaysNotFoundFilter() {
+    private HttpFiltersSource getAlwaysUnavailableFilter() {
         return new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest request) {
                 return new HttpFiltersAdapter(request) {
                     @Override
                     public HttpResponse requestPre(HttpObject httpObject) {
-                        log.debug("Helo, this is the 404 proxy server returning not found :)");
-                        return new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.NOT_FOUND);
+                        log.debug("Helo, this is the 500 proxy server returning server error :)");
+                        return new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.SERVICE_UNAVAILABLE);
                     }
                 };
             }
