@@ -22,7 +22,7 @@ import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.MessageBuilder;
 import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.core.payloads.QnePayload;
-import com.workshare.msnos.core.protocols.ip.Network;
+import com.workshare.msnos.core.protocols.ip.Endpoint;
 import com.workshare.msnos.usvc.RemoteMicroservice;
 import com.workshare.msnos.usvc.api.RestApi;
 
@@ -53,8 +53,8 @@ public abstract class AbstractTest {
         return remote;
     }
 
-    protected RemoteAgent newRemoteAgent(final UUID uuid, Network... hosts) {
-        RemoteAgent remote = new RemoteAgent(uuid, cloud, new HashSet<Network>(Arrays.asList(hosts)));
+    protected RemoteAgent newRemoteAgent(final UUID uuid, Endpoint... endpoints) {
+        RemoteAgent remote = new RemoteAgent(uuid, cloud, new HashSet<Endpoint>(Arrays.asList(endpoints)));
         putRemoteAgentInCloudAgentsList(remote);
         return remote;
     }
