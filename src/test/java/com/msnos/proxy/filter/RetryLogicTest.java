@@ -20,17 +20,17 @@ public class RetryLogicTest {
 
     @Test
     public void shouldReturnTrueOn408() throws Exception {
-        assertTrue(retryLogic.isWorth(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.REQUEST_TIMEOUT)));
+        assertTrue(retryLogic.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.REQUEST_TIMEOUT)));
     }
 
     @Test
     public void shouldReturnFalseOnAny4xxNotSpecified() throws Exception {
-        assertFalse(retryLogic.isWorth(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST)));
+        assertFalse(retryLogic.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST)));
     }
 
     @Test
     public void shouldReturnTrueOnAll5xx() throws Exception {
-        assertTrue(retryLogic.isWorth(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY)));
+        assertTrue(retryLogic.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY)));
     }
 
     private DefaultFullHttpResponse makeHttpResponse(HttpVersion version, HttpResponseStatus status) {

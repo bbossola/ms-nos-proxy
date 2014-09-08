@@ -1,31 +1,20 @@
 package com.msnos.proxy;
 
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
+import com.msnos.proxy.filter.AdminFilter;
+import com.msnos.proxy.filter.HttpProxyFilter;
+import com.workshare.msnos.usvc.Microservice;
+import io.netty.handler.codec.http.*;
+import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Queue;
 
-import org.littleshoot.proxy.ChainedProxy;
-import org.littleshoot.proxy.ChainedProxyAdapter;
-import org.littleshoot.proxy.ChainedProxyManager;
-import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.HttpFiltersAdapter;
-import org.littleshoot.proxy.HttpFiltersSource;
-import org.littleshoot.proxy.HttpFiltersSourceAdapter;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.msnos.proxy.filter.AdminFilter;
-import com.msnos.proxy.filter.HttpProxyFilter;
-import com.workshare.msnos.usvc.Microservice;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class Proxy {
 
@@ -38,7 +27,7 @@ public class Proxy {
     public Proxy(Microservice microservice, int port) {
         this.microservice = microservice;
         this.mainPort = port;
-        this.redirectPort = port + 1;
+        this.redirectPort = mainPort + 1;
     }
 
     public void start() throws UnknownHostException {
@@ -63,7 +52,7 @@ public class Proxy {
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest request) {
-                if (request.getUri().startsWith("admin")) {
+                if (request.getUri().startsWith("/admin")) {
                     return new AdminFilter(request, microservice);
                 } else {
                     return new HttpProxyFilter(request, microservice);
@@ -81,7 +70,7 @@ public class Proxy {
             }
 
             private ChainedProxyAdapter notfoundProxy() {
-                return new ChainedProxyAdapter(){
+                return new ChainedProxyAdapter() {
                     @Override
                     public InetSocketAddress getChainedProxyAddress() {
                         try {

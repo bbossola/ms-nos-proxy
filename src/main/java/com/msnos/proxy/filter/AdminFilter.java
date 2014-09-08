@@ -42,16 +42,30 @@ public class AdminFilter extends HttpFiltersAdapter {
     public HttpResponse requestPre(HttpObject httpObject) {
         HttpResponse response = null;
         if (httpObject instanceof HttpRequest) {
+            if (request.getUri().contains("admin/microservices")) response = microservices();
             if (request.getUri().contains("admin/routes")) response = routes();
             if (request.getUri().contains("admin/ping")) response = pong();
         }
         return response != null ? response : super.requestPre(httpObject);
     }
 
-    @Override
-    public HttpObject responsePre(HttpObject httpObject) {
-        return httpObject;
+    private HttpResponse microservices() {
+        List<RemoteMicroservice> routes = microservice.getMicroServices();
+        List<Map<String, String>> content = new ArrayList<Map<String, String>>();
+        for (RemoteMicroservice route : routes) {
+            Map<String, String> data = new HashMap<String, String>();
+            data.put("name", route.getName());
+            data.put("agent", route.getAgent().getIden().toString());
+            data.put("current sequence", route.getAgent().getSeq().toString());
+            data.put("location", route.getLocation().toString());
+            content.add(data);
+        }
+        String resp1 = gson.toJson(content);
+        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(resp1));
+        resp.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
+        return resp;
     }
+
 
     private HttpResponse routes() {
         List<RemoteMicroservice> routes = microservice.getMicroServices();

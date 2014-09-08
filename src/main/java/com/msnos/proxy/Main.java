@@ -8,8 +8,9 @@ import java.util.UUID;
 
 public class Main {
 
+    private static int port = Integer.getInteger("proxy.port", 8881);
+
     public static void main(String[] args) throws Exception {
-        int port = 8881;
         String name = "com.msnos.proxy.Proxy";
         Microservice microservice = new Microservice(name);
         Cloud nimbus = new Cloud(new UUID(111, 222));

@@ -12,7 +12,12 @@ import org.junit.Test;
 
 import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
 import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
+import static io.netty.handler.codec.http.HttpResponseStatus.OK;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 public class HttpRouterTest extends AbstractTest {
 
@@ -23,7 +28,7 @@ public class HttpRouterTest extends AbstractTest {
 
     @Test
     public void shouldRemoveServiceFromProxyingWhenFLTReceived() throws Exception {
-        DefaultHttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://127.0.0.1:8881/service/path");
+        DefaultHttpRequest request = new DefaultHttpRequest(HTTP_1_1, GET, "http://127.0.0.1:8881/service/path");
 
         Microservice microservice = createLocalMicroserviceAndJoinCloud();
         RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.20.10.102");
@@ -32,21 +37,21 @@ public class HttpRouterTest extends AbstractTest {
         simulateMessageFromCloud(new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.FLT, cloud.getIden(), microservice.getAgent().getIden()).with(2).sequence(123).reliable(false).with(new FltPayload(remote.getAgent().getIden())).make());
         simulateMessageFromCloud(new MessageBuilder(Message.Type.FLT, cloud, microservice.getAgent().getIden()).with(new FltPayload(remote.getAgent().getIden())).make());
 
-        router.routeClient(request);
-        HttpResponse response = router.serviceResponse(validHttpResponse());
+        router.routeRequest(request);
+        HttpResponse response = router.handleResponse(validHttpResponse());
 
         assertFalse(response.headers().contains(SET_COOKIE));
     }
 
     @Test
     public void shouldSendFinal500IfNoRestApis() throws Exception {
-        DefaultHttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://127.0.0.1:8881/service/path");
+        DefaultHttpRequest request = new DefaultHttpRequest(HTTP_1_1, GET, "http://127.0.0.1:8881/service/path");
         Microservice microservice = createLocalMicroserviceAndJoinCloud();
         setupRemoteMicroserviceWithAffinity("some", "other", "10.20.10.102");
 
         HttpRouter router = new HttpRouter(request, microservice);
 
-        HttpResponse httpResponse = router.serviceResponse(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR));
+        HttpResponse httpResponse = router.handleResponse(new DefaultFullHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR));
         assertTrue(getBodyTextFromResponse((DefaultFullHttpResponse) httpResponse).contains("momentarily faulty"));
     }
 
@@ -57,10 +62,29 @@ public class HttpRouterTest extends AbstractTest {
         DefaultHttpRequest request = createRequestWithMultipleCookieValuesOneBroken("service", "/path", "remote", "/otherP", getRestApiId(remote));
 
         HttpRouter router = new HttpRouter(request, microservice);
-        DefaultFullHttpResponse httpResponse = (DefaultFullHttpResponse) router.serviceResponse(router.routeClient(request));
+        router.routeRequest(request);
 
-        assertNotEquals(500, httpResponse.getStatus().code());
+        HttpResponse mockResponse = mock(HttpResponse.class);
+        when(mockResponse.getStatus()).thenReturn(OK);
+        when(mockResponse.headers()).thenReturn(new DefaultHttpHeaders());
 
+        int actual = router.handleResponse(mockResponse).getStatus().code();
+        assertEquals(200, actual);
+
+    }
+
+    @Test
+    public void shouldCreateProxyRestApiWhenResponseOKFromService() throws Exception {
+        Microservice microservice = mock(Microservice.class);
+        when(microservice.searchApi("service", "path")).thenReturn(new RestApi("service", "path", 1234, "http://123.4.55.66:1234"));
+        DefaultHttpRequest request = new DefaultHttpRequest(HTTP_1_1, GET, "http://127.0.0.1:8881/service/path");
+
+        HttpRouter router = new HttpRouter(request, microservice);
+        router.routeRequest(request);
+        router.handleResponse(new DefaultFullHttpResponse(HTTP_1_1, OK));
+
+        RestApi expected = new RestApi("service", "path", 8881);
+        verify(microservice, atLeastOnce()).publish(expected);
     }
 
     private DefaultHttpRequest createRequestWithMultipleCookieValuesOneBroken(String name, String path, String otherName, String otherPath, long restApiId) {
@@ -68,13 +92,6 @@ public class HttpRouterTest extends AbstractTest {
         Cookie cookieOne = new DefaultCookie(String.format("x-%s%s", name, path), Long.toString(restApiId));
         Cookie cookieTwo = new DefaultCookie(String.format("x-%s%s", otherName, otherPath), "timeToEXPLODE");
         addHeadersToRequest(request, COOKIE, ClientCookieEncoder.encode(cookieOne, cookieTwo));
-        return request;
-    }
-
-    private DefaultHttpRequest createRequestWithCookie(String name, String path, long restApiId) {
-        DefaultHttpRequest request = httpRequest(name, path);
-        Cookie cookieOne = new DefaultCookie(String.format("x-%s%s", name, path), Long.toString(restApiId));
-        addHeadersToRequest(request, COOKIE, ClientCookieEncoder.encode(cookieOne));
         return request;
     }
 
@@ -87,7 +104,7 @@ public class HttpRouterTest extends AbstractTest {
     }
 
     private DefaultHttpRequest httpRequest(String name, String path) {
-        return new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, name + path);
+        return new DefaultHttpRequest(HTTP_1_1, GET, name + path);
     }
 
     private void addHeadersToRequest(HttpRequest request, String name, String value) {
