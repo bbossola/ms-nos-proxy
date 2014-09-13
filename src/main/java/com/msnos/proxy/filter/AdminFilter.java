@@ -56,7 +56,6 @@ public class AdminFilter extends HttpFiltersAdapter {
             Map<String, String> data = new HashMap<String, String>();
             data.put("name", route.getName());
             data.put("agent", route.getAgent().getIden().toString());
-            data.put("current sequence", route.getAgent().getSeq().toString());
             data.put("location", route.getLocation().toString());
             content.add(data);
         }

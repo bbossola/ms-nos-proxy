@@ -34,7 +34,6 @@ public abstract class AbstractTest {
         cloud = mock(Cloud.class);
         Iden iden = new Iden(Iden.Type.CLD, UUID.randomUUID());
         when(cloud.getIden()).thenReturn(iden);
-        when(cloud.generateNextMessageUUID()).thenReturn(UUID.randomUUID());
     }
 
     protected Message newQNEMessage(String name, RemoteMicroservice remote, RestApi... restApi) {
