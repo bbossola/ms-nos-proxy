@@ -12,10 +12,13 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         String name = "com.msnos.proxy.Proxy";
+
         Microservice microservice = new Microservice(name);
         Cloud nimbus = new Cloud(new UUID(111, 222));
 
-        System.setProperty("temp.retries", "4");
+        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(nimbus, microservice);
+        watchdog.start();
+
         microservice.join(nimbus);
 
         RestApi restApi = new RestApi(name, "test", port);

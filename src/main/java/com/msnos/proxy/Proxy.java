@@ -28,7 +28,7 @@ public class Proxy {
         this.microservice = microservice;
         this.mainPort = port;
         this.redirectPort = mainPort + 1;
-    }
+           }
 
     public void start() throws UnknownHostException {
         DefaultHttpProxyServer

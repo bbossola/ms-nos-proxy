@@ -1,6 +1,5 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.core.MsnosException;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
 import com.workshare.msnos.usvc.api.RestApi.Type;
@@ -55,9 +54,8 @@ class HttpRouter {
                 return createResponse(NOT_FOUND);
             }
 
-            if (rest.isFaulty()) {
+            if (rest.isFaulty())
                 return createRetryResponse();
-            }
 
             request.setUri(rest.getUrl());
             return null;
@@ -69,13 +67,11 @@ class HttpRouter {
 
     public HttpResponse handleResponse(HttpResponse response) {
 
-        if (faultyResponseAndNoOtherRestApi(response)) {
+        if (faultyResponseAndNoOtherRestApi(response))
             return noWorkingRestApiResponse();
-        }
 
-        if (rest == null) {
+        if (rest == null)
             return response;
-        }
 
         if (retry.isNeeded(response)) {
             markApiFaultyStatus();
@@ -89,23 +85,10 @@ class HttpRouter {
                 if (cookies == null || !cookies.contains(cookie)) {
                     setCookieOnResponse(response, cookie);
                 }
-
-
             }
         }
 
-        publishProxiedRestApi(rest);
-
         return response;
-    }
-
-    private void publishProxiedRestApi(RestApi rest) {
-        RestApi proxyRest = new RestApi(rest.getName(), rest.getPath(), Integer.getInteger("proxy.port", 8881));
-        try {
-            microservice.publish(proxyRest);
-        } catch (MsnosException e) {
-            log.error("MsNos Exception tring to publish proxied rest api", e);
-        }
     }
 
     private void markApiFaultyStatus() {

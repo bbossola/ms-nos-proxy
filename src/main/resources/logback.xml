@@ -5,25 +5,32 @@
             <pattern>%-5p %m%n</pattern>
         </encoder>
     </appender>
-    <logger name="com.workshare.msnos.core" level="WARN">
+    <logger name="com.workshare.msnos.core" level="INFO">
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <logger name="protocol" level="ERROR"/>
+    <logger name="protocol" level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
 
     <logger name="org.apache.commons.logging" level="WARN">
         <appender-ref ref="CONSOLE"/>
     </logger>
+
     <logger name="com.barchart" level="WARN">
         <appender-ref ref="CONSOLE"/>
     </logger>
+
     <logger name="org.littleshoot" level="WARN">
         <appender-ref ref="CONSOLE"/>
     </logger>
+
     <logger name="io.netty.logging" level="WARN">
         <appender-ref ref="CONSOLE"/>
     </logger>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>
+
 </configuration>
