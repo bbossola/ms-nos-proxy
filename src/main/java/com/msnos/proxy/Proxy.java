@@ -1,7 +1,8 @@
 package com.msnos.proxy;
 
-import com.msnos.proxy.filter.AdminFilter;
-import com.msnos.proxy.filter.HttpProxyFilter;
+import com.msnos.proxy.filter.admin.AdminFilter;
+import com.msnos.proxy.filter.passive.PassiveServiceFilter;
+import com.msnos.proxy.filter.http.HttpProxyFilter;
 import com.workshare.msnos.usvc.Microservice;
 import io.netty.handler.codec.http.*;
 import org.littleshoot.proxy.*;
@@ -28,7 +29,7 @@ public class Proxy {
         this.microservice = microservice;
         this.mainPort = port;
         this.redirectPort = mainPort + 1;
-           }
+    }
 
     public void start() throws UnknownHostException {
         DefaultHttpProxyServer
@@ -54,6 +55,8 @@ public class Proxy {
             public HttpFilters filterRequest(HttpRequest request) {
                 if (request.getUri().startsWith("/admin")) {
                     return new AdminFilter(request, microservice);
+                } else if (request.getUri().startsWith("/msnos/")) {
+                    return new PassiveServiceFilter(request, microservice);
                 } else {
                     return new HttpProxyFilter(request, microservice);
                 }

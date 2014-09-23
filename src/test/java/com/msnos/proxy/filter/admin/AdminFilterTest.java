@@ -1,5 +1,6 @@
-package com.msnos.proxy.filter;
+package com.msnos.proxy.filter.admin;
 
+import com.msnos.proxy.filter.AbstractTest;
 import com.workshare.msnos.usvc.Microservice;
 import io.netty.handler.codec.http.*;
 import org.junit.Before;

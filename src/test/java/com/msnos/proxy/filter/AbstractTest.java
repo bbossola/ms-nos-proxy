@@ -1,30 +1,22 @@
 package com.msnos.proxy.filter;
 
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.workshare.msnos.core.*;
+import com.workshare.msnos.core.payloads.QnePayload;
+import com.workshare.msnos.core.protocols.ip.Endpoint;
+import com.workshare.msnos.usvc.RemoteMicroservice;
+import com.workshare.msnos.usvc.api.RestApi;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-
-import com.workshare.msnos.core.Cloud;
-import com.workshare.msnos.core.Iden;
-import com.workshare.msnos.core.Message;
-import com.workshare.msnos.core.MessageBuilder;
-import com.workshare.msnos.core.RemoteAgent;
-import com.workshare.msnos.core.payloads.QnePayload;
-import com.workshare.msnos.core.protocols.ip.Endpoint;
-import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.api.RestApi;
+import static org.mockito.Mockito.*;
 
 public abstract class AbstractTest {
 
@@ -38,8 +30,8 @@ public abstract class AbstractTest {
 
     protected Message newQNEMessage(String name, RemoteMicroservice remote, RestApi... restApi) {
         return new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden())
-            .with(UUID.randomUUID())
-            .with(new QnePayload(name, restApi)).make();
+                .with(UUID.randomUUID())
+                .with(new QnePayload(name, restApi)).make();
     }
 
     protected RemoteAgent newRemoteAgent() {
@@ -79,7 +71,7 @@ public abstract class AbstractTest {
     protected Set<RestApi> toSet(RestApi... restApi) {
         return new HashSet<RestApi>(Arrays.asList(restApi));
     }
-    
+
     protected DefaultFullHttpResponse validHttpResponse() {
         return makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
     }
@@ -88,5 +80,5 @@ public abstract class AbstractTest {
         return new DefaultFullHttpResponse(version, status);
     }
 
-   
+
 }

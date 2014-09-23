@@ -1,4 +1,4 @@
-package com.msnos.proxy.filter;
+package com.msnos.proxy.filter.admin;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

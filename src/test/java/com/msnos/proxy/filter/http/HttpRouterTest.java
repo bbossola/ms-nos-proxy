@@ -1,5 +1,6 @@
-package com.msnos.proxy.filter;
+package com.msnos.proxy.filter.http;
 
+import com.msnos.proxy.filter.AbstractTest;
 import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.MessageBuilder;
 import com.workshare.msnos.core.payloads.FltPayload;

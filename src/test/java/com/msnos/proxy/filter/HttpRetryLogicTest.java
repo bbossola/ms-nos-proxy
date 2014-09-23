@@ -9,28 +9,28 @@ import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class RetryLogicTest {
+public class HttpRetryLogicTest {
 
-    private RetryLogic retryLogic;
+    private HttpRetry httpRetry;
 
     @Before
     public void setUp() throws Exception {
-        retryLogic = new RetryLogic();
+        httpRetry = new HttpRetry();
     }
 
     @Test
     public void shouldReturnTrueOn408() throws Exception {
-        assertTrue(retryLogic.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.REQUEST_TIMEOUT)));
+        assertTrue(httpRetry.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.REQUEST_TIMEOUT)));
     }
 
     @Test
     public void shouldReturnFalseOnAny4xxNotSpecified() throws Exception {
-        assertFalse(retryLogic.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST)));
+        assertFalse(httpRetry.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST)));
     }
 
     @Test
     public void shouldReturnTrueOnAll5xx() throws Exception {
-        assertTrue(retryLogic.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY)));
+        assertTrue(httpRetry.isNeeded(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY)));
     }
 
     private DefaultFullHttpResponse makeHttpResponse(HttpVersion version, HttpResponseStatus status) {

@@ -1,4 +1,4 @@
-package com.msnos.proxy.filter;
+package com.msnos.proxy.filter.http;
 
 import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.Microservice;
@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 public class HttpProxyFilter extends HttpFiltersAdapter {
 
-    private static final Logger log = LoggerFactory.getLogger(HttpRouter.class);
+    private static final Logger log = LoggerFactory.getLogger(HttpProxyFilter.class);
 
     private final HttpRouter router;
 
@@ -22,8 +22,8 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
     @Override
     public HttpResponse requestPre(HttpObject httpObject) {
-        if (log.isDebugEnabled()) log.debug("http: "+Json.toJsonString(httpObject));
-        
+        if (log.isDebugEnabled()) log.debug("http: " + Json.toJsonString(httpObject));
+
         HttpResponse response = null;
         if (httpObject instanceof HttpRequest) {
             HttpRequest request = (HttpRequest) httpObject;
@@ -34,7 +34,7 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
     @Override
     public HttpObject responsePre(HttpObject httpObject) {
-        if (log.isDebugEnabled()) log.debug("http: "+Json.toJsonString(httpObject));
+        if (log.isDebugEnabled()) log.debug("http: " + Json.toJsonString(httpObject));
 
         if (httpObject instanceof HttpResponse) {
             HttpResponse response = (HttpResponse) httpObject;

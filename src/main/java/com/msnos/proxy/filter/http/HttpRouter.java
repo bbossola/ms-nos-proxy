@@ -1,5 +1,7 @@
-package com.msnos.proxy.filter;
+package com.msnos.proxy.filter.http;
 
+import com.msnos.proxy.filter.HttpRetry;
+import com.msnos.proxy.filter.Retry;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
 import com.workshare.msnos.usvc.api.RestApi.Type;
@@ -26,7 +28,7 @@ class HttpRouter {
 
     private final Microservice microservice;
     private final HttpRequest originalRequest;
-    private final RetryLogic retry;
+    private final Retry retry;
     private final int tempRetries;
 
     private RestApi rest;
@@ -36,7 +38,7 @@ class HttpRouter {
         this.originalRequest = originalRequest;
         this.microservice = microservice;
         this.tempRetries = Integer.getInteger("temporary.api.retries", 4);
-        this.retry = new RetryLogic();
+        this.retry = new HttpRetry();
     }
 
     public HttpResponse routeRequest(HttpRequest request) {

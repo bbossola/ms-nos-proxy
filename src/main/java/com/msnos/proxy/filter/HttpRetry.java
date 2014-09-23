@@ -2,8 +2,11 @@ package com.msnos.proxy.filter;
 
 import io.netty.handler.codec.http.HttpResponse;
 
-class RetryLogic {
-
+/**
+ * Created by rhys on 19/09/14.
+ */
+public class HttpRetry implements Retry {
+    @Override
     public boolean isNeeded(HttpResponse response) {
         boolean result = false;
         String respCode = Integer.toString(response.getStatus().code());

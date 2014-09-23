@@ -1,5 +1,6 @@
-package com.msnos.proxy.filter;
+package com.msnos.proxy.filter.http;
 
+import com.msnos.proxy.filter.AbstractTest;
 import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
