@@ -1,8 +1,8 @@
 package com.msnos.proxy;
 
 import com.msnos.proxy.filter.admin.AdminFilter;
-import com.msnos.proxy.filter.passive.PassiveServiceFilter;
 import com.msnos.proxy.filter.http.HttpProxyFilter;
+import com.msnos.proxy.filter.passive.PassiveServiceFilter;
 import com.workshare.msnos.usvc.Microservice;
 import io.netty.handler.codec.http.*;
 import org.littleshoot.proxy.*;
@@ -52,6 +52,8 @@ public class Proxy {
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
+
+            @Override
             public HttpFilters filterRequest(HttpRequest request) {
                 if (request.getUri().startsWith("/admin")) {
                     return new AdminFilter(request, microservice);
@@ -60,6 +62,11 @@ public class Proxy {
                 } else {
                     return new HttpProxyFilter(request, microservice);
                 }
+            }
+
+            @Override
+            public int getMaximumRequestBufferSizeInBytes() {
+                return 2048;
             }
         };
     }
