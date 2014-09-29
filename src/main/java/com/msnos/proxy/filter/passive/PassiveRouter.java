@@ -39,6 +39,8 @@ public class PassiveRouter {
             return createResponse(BAD_REQUEST, "text/plain", e.getMessage());
         } catch (JsonParseException e) {
             return createResponse(NOT_ACCEPTABLE, "text/plain", e.getMessage());
+        } catch (MsnosException e) {
+            return createResponse(INTERNAL_SERVER_ERROR, "text/plain", e.getMessage());
         }
     }
 
@@ -118,8 +120,7 @@ public class PassiveRouter {
     }
 
     private DefaultFullHttpResponse createResponse(HttpResponseStatus status, String contentType, String message) {
-        DefaultFullHttpResponse response;
-        response = new DefaultFullHttpResponse(HTTP_1_1, status);
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, status);
         response.headers().set(CONTENT_TYPE, contentType);
         writeContent(response, message);
         return response;

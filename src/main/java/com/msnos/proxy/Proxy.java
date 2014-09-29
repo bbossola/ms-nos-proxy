@@ -68,6 +68,7 @@ public class Proxy {
             public int getMaximumRequestBufferSizeInBytes() {
                 return 2048;
             }
+
         };
     }
 
