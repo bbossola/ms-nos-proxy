@@ -6,5 +6,5 @@ A dynamic and fast nio HTTP proxy to automatically serve a cloud of microservice
 
 ## License
 
-Released under the MIT License.  See the [LICENSE](LICENSE.md) file for further details.
+Released under the MIT License.  See the [LICENSE](LICENSE) file for further details.
 
