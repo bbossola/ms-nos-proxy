@@ -34,7 +34,7 @@ public class HttpProxyFilterTest extends AbstractTest {
 
     @Test
     public void shouldInvokeSearchWithCorrectParameters() throws Exception {
-        microservice = getMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13/123");
+        microservice = createMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13/123");
 
         filter().requestPre(defaultHttpRequest);
 
@@ -44,11 +44,12 @@ public class HttpProxyFilterTest extends AbstractTest {
 
     @Test
     public void shouldPopulateCorrectlyTheRequestURI() throws Exception {
-        microservice = getMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13");
+        RestApi api = new RestApi("service", "path", 1111, "10.10.20.13");
+        microservice = createMockMicroservice(api);
 
         filter().requestPre(defaultHttpRequest);
 
-        assertEquals("http://10.10.20.13:1111/service/path/", defaultHttpRequest.getUri());
+        assertEquals(api.getUrl(), defaultHttpRequest.getUri());
     }
 
     @Test
@@ -231,9 +232,13 @@ public class HttpProxyFilterTest extends AbstractTest {
         return microservice;
     }
 
-    private Microservice getMockMicroserviceWithRestApi(String name, String path, int host, String port) throws Exception {
-        Microservice microservice = mock(Microservice.class);
+    private Microservice createMockMicroserviceWithRestApi(String name, String path, int host, String port) throws Exception {
         RestApi api = new RestApi(name, path, host, port);
+        return createMockMicroservice(api);
+    }
+
+    private Microservice createMockMicroservice(RestApi api) {
+        Microservice microservice = mock(Microservice.class);
         Mockito.when(microservice.searchApi(anyString(), anyString())).thenReturn(api);
         return microservice;
     }
