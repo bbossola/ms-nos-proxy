@@ -1,13 +1,12 @@
 package com.msnos.proxy.filter.passive;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
-import com.workshare.msnos.core.MsnosException;
-import com.workshare.msnos.soup.json.Json;
-import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.PassiveService;
-import com.workshare.msnos.usvc.api.RestApi;
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
+import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
+import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
+import static io.netty.handler.codec.http.HttpResponseStatus.NOT_ACCEPTABLE;
+import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
+import static io.netty.handler.codec.http.HttpResponseStatus.OK;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -18,16 +17,21 @@ import io.netty.util.CharsetUtil;
 
 import java.util.UUID;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static io.netty.handler.codec.http.HttpResponseStatus.*;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+import com.workshare.msnos.core.MsnosException;
+import com.workshare.msnos.soup.json.Json;
+import com.workshare.msnos.usvc.Microcloud;
+import com.workshare.msnos.usvc.PassiveService;
+import com.workshare.msnos.usvc.api.RestApi;
 
 public class PassiveRouter {
 
-    private Microservice microservice;
+    private Microcloud microcloud;
 
-    public PassiveRouter(Microservice microservice) {
-        this.microservice = microservice;
+    public PassiveRouter(Microcloud ucloud) {
+        this.microcloud = ucloud;
     }
 
     public DefaultFullHttpResponse getServiceCreationResponse(FullHttpRequest request) {
@@ -53,7 +57,7 @@ public class PassiveRouter {
             return createResponse(BAD_REQUEST, "text/plain", e.getMessage());
         }
 
-        PassiveService passiveService = microservice.searchPassives(UUID.fromString(uuidString));
+        PassiveService passiveService = microcloud.searchPassives(UUID.fromString(uuidString));
         if (passiveService == null) {
             return createResponse(NOT_FOUND, "text/plain", "No passive service found for supplied UUID. ");
         }
@@ -109,7 +113,7 @@ public class PassiveRouter {
             String healthcheck = getElementAsString(jsonObj, "healthcheck-uri");
             int port = jsonObj.get("port").getAsInt();
 
-            return new PassiveService(microservice, cloudUUID, name, host, healthcheck, port);
+            return new PassiveService(microcloud, name, host, port, healthcheck);
         } catch (NullPointerException e) {
             throw new JsonParseException("Could not correctly obtain the JSON for creation of Passive Service. ");
         }

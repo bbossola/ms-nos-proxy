@@ -4,6 +4,7 @@ import com.workshare.msnos.core.Cloud;
 import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.MsnosException;
 import com.workshare.msnos.core.payloads.QnePayload;
+import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
 import org.slf4j.Logger;
@@ -19,12 +20,12 @@ public class ProxyApiWatchdog {
 
     private static final Logger log = LoggerFactory.getLogger(ProxyApiWatchdog.class);
 
-    private final Cloud cloud;
+    private final Microcloud cloud;
     private final Microservice microservice;
     private final Map<String, RestApi> proxiedServices;
 
-    public ProxyApiWatchdog(Cloud cloud, Microservice microservice) {
-        this.cloud = cloud;
+    public ProxyApiWatchdog(Microservice microservice) {
+        this.cloud = microservice.getCloud();
         this.microservice = microservice;
 
         this.proxiedServices = new ConcurrentHashMap<String, RestApi>();

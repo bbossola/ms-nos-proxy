@@ -1,16 +1,23 @@
 package com.msnos.proxy.filter.passive;
 
-import com.workshare.msnos.usvc.Microservice;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+
 import org.littleshoot.proxy.HttpFiltersAdapter;
+
+import com.workshare.msnos.usvc.Microcloud;
 
 public class PassiveServiceFilter extends HttpFiltersAdapter {
 
-    private Microservice microservice;
+    private Microcloud microcloud;
 
-    public PassiveServiceFilter(HttpRequest originalRequest, Microservice microservice) {
+    public PassiveServiceFilter(HttpRequest originalRequest, Microcloud ucloud) {
         super(originalRequest);
-        this.microservice = microservice;
+        this.microcloud = ucloud;
     }
 
     @Override
@@ -20,7 +27,7 @@ public class PassiveServiceFilter extends HttpFiltersAdapter {
         if (httpObject instanceof FullHttpRequest) {
             FullHttpRequest request = (FullHttpRequest) httpObject;
             if (isPOSTAndContainsJson(request)) {
-                PassiveRouter router = new PassiveRouter(microservice);
+                PassiveRouter router = new PassiveRouter(microcloud);
                 if (hasValidUUID(request)) {
                     response = router.getPublishRestApiResponse(request);
                 } else {

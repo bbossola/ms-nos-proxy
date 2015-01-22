@@ -2,6 +2,7 @@ package com.msnos.proxy;
 
 import com.workshare.msnos.core.*;
 import com.workshare.msnos.core.payloads.QnePayload;
+import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
 import org.junit.Before;
@@ -9,26 +10,29 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.mockito.Mockito.*;
 
 public class ProxyApiWatchdogTest {
 
-    Cloud cloud;
-    Microservice microservice;
+    private Cloud cloud;
+    private Microservice microservice;
+    private Microcloud microcloud;
 
     @Before
     public void setUp() throws Exception {
         cloud = mock(Cloud.class);
         when(cloud.getIden()).thenReturn(new Iden(Iden.Type.CLD, UUID.randomUUID()));
+        microcloud = new Microcloud(cloud, mock(ScheduledExecutorService.class));
 
         microservice = new Microservice("WatchDAWG");
-        microservice.join(cloud);
+        microservice.join(microcloud);
     }
 
     @Test
     public void shouldListenToTheCloud() throws Exception {
-        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(cloud, microservice);
+        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(microservice);
         watchdog.start();
 
         verify(cloud, atLeastOnce()).addListener(any(Cloud.Listener.class));
@@ -38,7 +42,7 @@ public class ProxyApiWatchdogTest {
     public void shouldRepublishProxyQNEWhenQNEPayloadReceived() throws Exception {
         microservice = getMockMicroservice();
 
-        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(cloud, microservice);
+        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(microservice);
         watchdog.start();
 
         simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("WatchDAWG", "test", 9999))).make());
@@ -51,7 +55,7 @@ public class ProxyApiWatchdogTest {
     public void shouldNOTPublishAnythingWhenOtherMessagesReceived() throws Exception {
         microservice = getMockMicroservice();
 
-        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(cloud, microservice);
+        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(microservice);
         watchdog.start();
 
         simulateMessageFromCloud(new MessageBuilder(Message.Type.PRS, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).make());
@@ -64,7 +68,7 @@ public class ProxyApiWatchdogTest {
     public void shouldNOTRepublishAlreadyReverseProxiedApis() throws Exception {
         microservice = getMockMicroservice();
 
-        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(cloud, microservice);
+        ProxyApiWatchdog watchdog = new ProxyApiWatchdog( microservice);
         watchdog.start();
 
         simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("WatchDAWG", "test", 9999))).make());
@@ -76,6 +80,7 @@ public class ProxyApiWatchdogTest {
     private Microservice getMockMicroservice() {
         Microservice microservice = mock(Microservice.class);
         LocalAgent agent = mock(LocalAgent.class);
+        when(microservice.getCloud()).thenReturn(microcloud);
         when(microservice.getAgent()).thenReturn(agent);
         when(agent.getIden()).thenReturn(new Iden(Iden.Type.AGT, UUID.randomUUID()));
         return microservice;

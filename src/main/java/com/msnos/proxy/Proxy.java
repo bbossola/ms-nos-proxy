@@ -55,10 +55,13 @@ public class Proxy {
 
             @Override
             public HttpFilters filterRequest(HttpRequest request) {
-                if (request.getUri().startsWith("/admin")) {
+                final String uri = request.getUri();
+                if (log.isDebugEnabled()) log.debug("Request for uri {}", uri);
+                
+                if (uri.startsWith("/admin")) {
                     return new AdminFilter(request, microservice);
-                } else if (request.getUri().startsWith("/msnos/")) {
-                    return new PassiveServiceFilter(request, microservice);
+                } else if (uri.startsWith("/msnos/")) {
+                    return new PassiveServiceFilter(request, microservice.getCloud());
                 } else {
                     return new HttpProxyFilter(request, microservice);
                 }

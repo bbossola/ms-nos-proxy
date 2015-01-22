@@ -1,6 +1,8 @@
 package com.msnos.proxy;
 
 import com.workshare.msnos.core.Cloud;
+import com.workshare.msnos.core.MsnosException;
+import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
 
@@ -11,18 +13,17 @@ public class Main {
     private static int port = Integer.getInteger("proxy.port", 8881);
 
     public static void main(String[] args) throws Exception {
-        String name = "com.msnos.proxy.Proxy";
+        String name = "proxy";
 
-        Microservice microservice = new Microservice(name);
-        Cloud nimbus = new Cloud(new UUID(111, 222));
+        final Microcloud nimbus = new Microcloud(new Cloud(new UUID(111, 222)));
 
-        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(nimbus, microservice);
-        watchdog.start();
-
+        final Microservice microservice = new Microservice(name);
         microservice.join(nimbus);
-
         RestApi restApi = new RestApi(name, "test", port);
         microservice.publish(restApi);
+
+//        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(microservice);
+//        watchdog.start();
 
         Proxy proxy = new Proxy(microservice, port);
         proxy.start();

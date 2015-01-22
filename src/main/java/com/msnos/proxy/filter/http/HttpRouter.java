@@ -115,7 +115,7 @@ class HttpRouter {
         for (Cookie cookie : cookies) {
             if (cookie.getName().contains(path)) {
                 try {
-                    result = microservice.searchApiById(Long.parseLong(cookie.getValue()));
+                    result = microservice.getCloud().searchApiById(Long.parseLong(cookie.getValue()));
                     break;
                 } catch (NumberFormatException e) {
                     log.error("Invalid value for cookie {}", cookie.toString());

@@ -1,13 +1,14 @@
 package com.msnos.proxy.filter.http;
 
-import com.workshare.msnos.soup.json.Json;
-import com.workshare.msnos.usvc.Microservice;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+
 import org.littleshoot.proxy.HttpFiltersAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.workshare.msnos.usvc.Microservice;
 
 public class HttpProxyFilter extends HttpFiltersAdapter {
 
@@ -22,7 +23,7 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
     @Override
     public HttpResponse requestPre(HttpObject httpObject) {
-        if (log.isDebugEnabled()) log.debug("http: " + Json.toJsonString(httpObject));
+        if (log.isDebugEnabled()) log.debug("http: {}", httpObject);
 
         HttpResponse response = null;
         if (httpObject instanceof HttpRequest) {
@@ -34,7 +35,7 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
     @Override
     public HttpObject responsePre(HttpObject httpObject) {
-        if (log.isDebugEnabled()) log.debug("http: " + Json.toJsonString(httpObject));
+        if (log.isDebugEnabled()) log.debug("http: {}", httpObject);
 
         if (httpObject instanceof HttpResponse) {
             HttpResponse response = (HttpResponse) httpObject;

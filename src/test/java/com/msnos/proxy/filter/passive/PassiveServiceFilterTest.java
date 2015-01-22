@@ -1,22 +1,21 @@
 package com.msnos.proxy.filter.passive;
 
-import com.google.gson.JsonParser;
-import com.msnos.proxy.filter.AbstractTest;
-import com.workshare.msnos.core.Cloud;
-import com.workshare.msnos.usvc.Microservice;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
+
+import java.nio.charset.Charset;
+
 import org.junit.Before;
 import org.junit.Test;
 
-import java.nio.charset.Charset;
-import java.util.UUID;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import com.google.gson.JsonParser;
+import com.msnos.proxy.filter.AbstractTest;
+import com.workshare.msnos.usvc.Microservice;
 
 public class PassiveServiceFilterTest extends AbstractTest {
 
@@ -27,12 +26,13 @@ public class PassiveServiceFilterTest extends AbstractTest {
 
     @Before
     public void setUp() throws Exception {
+        super.prepare();
         microservice = new Microservice("test");
+        microservice.join(microcloud);
     }
 
     @Test
     public void shouldReturnUUIDWhenSubscribeMessage() throws Exception {
-        microservice.join(new Cloud(UUID.fromString("078d9596-3f1f-11e4-9d9f-164230df67")));
         request = getSubRequestWithCorrectJson();
 
         httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
@@ -44,31 +44,18 @@ public class PassiveServiceFilterTest extends AbstractTest {
         assertTrue(getResponseString(httpResponse).contains(expected));
     }
 
-    @Test
-    public void shouldReturn400IfSubRequestIsForOtherCloud() throws Exception {
-        microservice.join(new Cloud(new UUID(111, 222)));
-        request = getSubRequestWithCorrectJson();
-
-        httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
-
-        assertEquals(400, httpResponse.getStatus().code());
-        assertEquals(("Passive microservice trying to join different cloud than microservice's joined cloud! "), getResponseString(httpResponse));
-    }
-
-    @Test
-    public void shouldReturn400IfPassiveServiceRequestToUnjoinedMicroservice() throws Exception {
-        request = getSubRequestWithCorrectJson();
-
-        httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
-
-        assertEquals(400, httpResponse.getStatus().code());
-        assertEquals(("Microservice not currently joined to a cloud, passive service creation refused! "), getResponseString(httpResponse));
-    }
-
+//    @Test
+//    public void shouldReturn400IfSubRequestIsForOtherCloud() throws Exception {
+//        request = getSubRequestWithCorrectJson();
+//
+//        httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
+//
+//        assertEquals(400, httpResponse.getStatus().code());
+//        assertEquals(("Passive microservice trying to join different cloud than microservice's joined cloud! "), getResponseString(httpResponse));
+//    }
 
     @Test
     public void shouldReturnNotAcceptableIfJSONUnparsable() throws Exception {
-        microservice.join(new Cloud(UUID.fromString("078d9596-3f1f-11e4-9d9f-164230df67")));
         request = getSubRequestWithWrongJson();
 
         httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
@@ -79,7 +66,6 @@ public class PassiveServiceFilterTest extends AbstractTest {
 
     @Test
     public void shouldReturnNotAcceptableIfJSONBroken() throws Exception {
-        microservice.join(new Cloud(UUID.fromString("078d9596-3f1f-11e4-9d9f-164230df67")));
         request = getSubRequestWithBrokenJson();
 
         httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
@@ -90,7 +76,6 @@ public class PassiveServiceFilterTest extends AbstractTest {
 
     @Test
     public void shouldReturnUUIDOnCorrectRestApiPubRequest() throws Exception {
-        microservice.join(new Cloud(UUID.fromString("078d9596-3f1f-11e4-9d9f-164230df67")));
         request = getSubRequestWithCorrectJson();
         httpResponse = (DefaultFullHttpResponse) passiveServiceFilter().requestPre(request);
 
@@ -108,7 +93,7 @@ public class PassiveServiceFilterTest extends AbstractTest {
 
     private PassiveServiceFilter passiveServiceFilter() {
         if (passiveServiceFilter == null)
-            return passiveServiceFilter = new PassiveServiceFilter(request, microservice);
+            return passiveServiceFilter = new PassiveServiceFilter(request, microcloud);
         else
             return passiveServiceFilter;
     }

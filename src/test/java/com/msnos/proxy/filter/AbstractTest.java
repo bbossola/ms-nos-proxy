@@ -1,41 +1,69 @@
 package com.msnos.proxy.filter;
 
-import com.workshare.msnos.core.*;
-import com.workshare.msnos.core.payloads.QnePayload;
-import com.workshare.msnos.core.protocols.ip.Endpoint;
-import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.api.RestApi;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 
-import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+
+import com.workshare.msnos.core.Cloud;
+import com.workshare.msnos.core.Cloud.Listener;
+import com.workshare.msnos.core.Iden;
+import com.workshare.msnos.core.Message;
+import com.workshare.msnos.core.MessageBuilder;
+import com.workshare.msnos.core.MsnosException;
+import com.workshare.msnos.core.RemoteAgent;
+import com.workshare.msnos.core.payloads.Presence;
+import com.workshare.msnos.core.payloads.QnePayload;
+import com.workshare.msnos.core.protocols.ip.Endpoint;
+import com.workshare.msnos.usvc.Microcloud;
+import com.workshare.msnos.usvc.RemoteMicroservice;
+import com.workshare.msnos.usvc.api.RestApi;
 
 public abstract class AbstractTest {
 
+    protected static final UUID CLOUD_UUID = UUID.randomUUID();
+
     protected Cloud cloud;
+    protected Microcloud microcloud;
 
     public void prepare() throws Exception {
         cloud = mock(Cloud.class);
-        Iden iden = new Iden(Iden.Type.CLD, UUID.randomUUID());
+        Iden iden = new Iden(Iden.Type.CLD, CLOUD_UUID);
         when(cloud.getIden()).thenReturn(iden);
+
+        microcloud = new Microcloud(cloud, Mockito.mock(ScheduledExecutorService.class));
     }
 
     protected Message newQNEMessage(String name, RemoteMicroservice remote, RestApi... restApi) {
         return new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden())
-                .with(UUID.randomUUID())
+                .with(CLOUD_UUID)
                 .with(new QnePayload(name, restApi)).make();
     }
 
+    protected Message newPRSMessage(RemoteAgent agent) {
+        try {
+            return new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.PRS, agent.getIden(), cloud.getIden())
+                    .with(CLOUD_UUID)
+                    .with(new Presence(true, agent)).make();
+        } catch (MsnosException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     protected RemoteAgent newRemoteAgent() {
-        return newRemoteAgent(UUID.randomUUID());
+        return newRemoteAgent(CLOUD_UUID);
     }
 
     protected RemoteMicroservice addRemoteAgentToCloudListAndMicroserviceToLocalList(String name, RemoteMicroservice remote, RestApi... restApi) {
@@ -52,20 +80,27 @@ public abstract class AbstractTest {
 
     protected void putRemoteAgentInCloudAgentsList(RemoteAgent agent) {
         Mockito.when(cloud.getRemoteAgents()).thenReturn(new HashSet<RemoteAgent>(Arrays.asList(agent)));
+        Mockito.when(cloud.find(agent.getIden())).thenReturn(agent);
     }
 
     protected Message simulateMessageFromCloud(final Message message) {
         ArgumentCaptor<Cloud.Listener> cloudListener = ArgumentCaptor.forClass(Cloud.Listener.class);
         verify(cloud, atLeastOnce()).addListener(cloudListener.capture());
-        cloudListener.getValue().onMessage(message);
+        for (Listener listener : cloudListener.getAllValues()) {
+            listener.onMessage(message);
+        }
+
         return message;
     }
 
     protected RemoteMicroservice setupRemoteMicroserviceWithAffinity(String name, String endpoint, String host) {
         RemoteAgent agent = newRemoteAgent();
+        
         RestApi restApi = new RestApi(name, endpoint, 9999).onHost(host).withAffinity();
         RemoteMicroservice remote = new RemoteMicroservice(name, agent, toSet(restApi));
-        return addRemoteAgentToCloudListAndMicroserviceToLocalList(name, remote, restApi);
+        simulateMessageFromCloud(this.newQNEMessage(name, remote, new RestApi[] { restApi }));
+
+        return remote;
     }
 
     protected Set<RestApi> toSet(RestApi... restApi) {
@@ -79,6 +114,4 @@ public abstract class AbstractTest {
     protected DefaultFullHttpResponse makeHttpResponse(HttpVersion version, HttpResponseStatus status) {
         return new DefaultFullHttpResponse(version, status);
     }
-
-
 }

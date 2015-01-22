@@ -2,6 +2,7 @@ package com.msnos.proxy.filter.http;
 
 import com.msnos.proxy.filter.AbstractTest;
 import com.workshare.msnos.core.RemoteAgent;
+import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
 import com.workshare.msnos.usvc.api.RestApi;
@@ -15,8 +16,7 @@ import static io.netty.handler.codec.http.HttpHeaders.Names.*;
 import static junit.framework.TestCase.*;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 public class HttpProxyFilterTest extends AbstractTest {
 
@@ -64,12 +64,14 @@ public class HttpProxyFilterTest extends AbstractTest {
 
     @Test
     public void shouldInvokeSearchByIDWhenCookiePresent() throws Exception {
+        microcloud = mock(Microcloud.class);
+        microservice = mock(Microservice.class);
+        when(microservice.getCloud()).thenReturn(microcloud);
+        
         addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Integer.toString(1)));
-        microservice = getMockMicroserviceWithIDRestApi("service", "path", "10.10.2.1/123", 1);
-
         filter().requestPre(defaultHttpRequest);
 
-        verify(microservice).searchApiById(anyLong());
+        verify(microcloud).searchApiById(anyLong());
     }
 
     @Test
@@ -188,7 +190,7 @@ public class HttpProxyFilterTest extends AbstractTest {
 
     private Microservice createLocalMicroserviceAndJoinCloud() throws Exception {
         Microservice ms = new Microservice("local");
-        ms.join(cloud);
+        ms.join(microcloud);
         return ms;
     }
 
@@ -216,14 +218,16 @@ public class HttpProxyFilterTest extends AbstractTest {
         return new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, name + path);
     }
 
-    private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest, Microservice microservice) {
+    private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest) {
         return new HttpProxyFilter(httpRequest, microservice);
     }
 
     private Microservice getMockMicroserviceWithIDRestApi(String name, String path, String host, int port) throws Exception {
         Microservice microservice = mock(Microservice.class);
+        when(microservice.getCloud()).thenReturn(microcloud);
+        
         RestApi api = new RestApi(name, path, port, host).withAffinity();
-        Mockito.when(microservice.searchApiById(anyLong())).thenReturn(api);
+        when(microcloud.searchApiById(anyLong())).thenReturn(api);
         return microservice;
     }
 
@@ -242,7 +246,7 @@ public class HttpProxyFilterTest extends AbstractTest {
 
     private HttpFilters filter() {
         if (filter == null)
-            filter = setupHttpProxyFilter(defaultHttpRequest, microservice);
+            filter = setupHttpProxyFilter(defaultHttpRequest);
 
         return filter;
     }

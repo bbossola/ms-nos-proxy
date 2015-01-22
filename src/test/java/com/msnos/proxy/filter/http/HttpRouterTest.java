@@ -111,7 +111,7 @@ public class HttpRouterTest extends AbstractTest {
 
     private Microservice createLocalMicroserviceAndJoinCloud() throws Exception {
         Microservice ms = new Microservice("local");
-        ms.join(cloud);
+        ms.join(microcloud);
         return ms;
     }
 }
