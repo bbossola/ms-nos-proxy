@@ -11,3 +11,4 @@ tmp
 spikes
 *~
 dependency-reduced-pom.xml
+*.sh

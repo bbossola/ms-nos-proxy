@@ -1,21 +1,39 @@
 package com.msnos.proxy;
 
-import com.msnos.proxy.filter.admin.AdminFilter;
-import com.msnos.proxy.filter.http.HttpProxyFilter;
-import com.msnos.proxy.filter.passive.PassiveServiceFilter;
-import com.workshare.msnos.usvc.Microservice;
-import io.netty.handler.codec.http.*;
-import org.littleshoot.proxy.*;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.UnknownHostException;
+import java.util.Enumeration;
+import java.util.Queue;
+import java.util.Set;
+
+import org.littleshoot.proxy.ChainedProxy;
+import org.littleshoot.proxy.ChainedProxyAdapter;
+import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.HttpFiltersAdapter;
+import org.littleshoot.proxy.HttpFiltersSource;
+import org.littleshoot.proxy.HttpFiltersSourceAdapter;
+import org.littleshoot.proxy.HttpProxyServerBootstrap;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.util.Queue;
-
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import com.msnos.proxy.filter.admin.AdminFilter;
+import com.msnos.proxy.filter.http.HttpProxyFilter;
+import com.msnos.proxy.filter.passive.PassiveServiceFilter;
+import com.workshare.msnos.core.protocols.ip.AddressResolver;
+import com.workshare.msnos.core.protocols.ip.Network;
+import com.workshare.msnos.usvc.Microservice;
 
 public class Proxy {
 
@@ -31,23 +49,52 @@ public class Proxy {
         this.redirectPort = mainPort + 1;
     }
 
-    public void start() throws UnknownHostException {
-        DefaultHttpProxyServer
+    public void start() throws Exception {
+        HttpProxyServerBootstrap redo = DefaultHttpProxyServer
                 .bootstrap()
                 .withName("500")
-                .withPort(redirectPort)
                 .withFiltersSource(getAlwaysUnavailableFilter())
-                .withTransparent(true)
-                .start();
-
-        DefaultHttpProxyServer
+                .withTransparent(true);
+        
+        HttpProxyServerBootstrap main = DefaultHttpProxyServer
                 .bootstrap()
                 .withName("MAIN")
-                .withPort(mainPort)
                 .withFiltersSource(getHttpFiltersSourceAdapter())
                 .withChainProxyManager(chainedProxyManager())
-                .withTransparent(true)
-                .start();
+                .withTransparent(true);
+
+        bindToNetworkInterfaces(redo, main);
+
+        main.start();
+        redo.start();
+    }
+
+    public void bindToNetworkInterfaces(HttpProxyServerBootstrap redo, HttpProxyServerBootstrap main) throws Exception {
+        
+        // localhost
+        bind(main, InetAddress.getLocalHost(), "main", mainPort);
+        bind(redo, InetAddress.getLocalHost(), "final redirect endpoint", redirectPort);
+
+        // all local interfaces 
+        Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
+        Set<Network> nets = Network.listAll(nics, true, false, new AddressResolver(){
+            public Network findPublicIP() throws IOException {
+                return null;
+            }
+        });
+
+        for (Network net : nets) {
+            byte[] addr = net.getAddress();
+            final InetAddress inetAddress = InetAddress.getByAddress(addr);
+            bind(main, inetAddress, "main", mainPort);
+            bind(redo, inetAddress, "final redirect endpoint", redirectPort);
+        }
+    }
+
+    public void bind(HttpProxyServerBootstrap boot, final InetAddress byAddress, String iden, final int port) {
+        final InetSocketAddress socketAddr = new InetSocketAddress(byAddress, port);
+        boot.withAddress(socketAddr);
+        log.info("Binding address {} to {}", socketAddr, iden);
     }
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {

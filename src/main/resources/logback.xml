@@ -27,7 +27,7 @@
     <logger name="com.msnos.proxy" level="DEBUG"/>
 
     <root>
-        <level value="DEBUG"/>
+        <level value="INFO"/>
 		<appender-ref ref="main.appender"/>
     </root>
 

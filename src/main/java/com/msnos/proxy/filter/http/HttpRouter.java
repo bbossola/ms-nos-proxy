@@ -102,16 +102,15 @@ class HttpRouter {
     }
 
     private RestApi findApi(HttpRequest httpRequest) {
-        String[] pathArray = getPathArray(httpRequest);
-        if (pathArray.length < 3)
+        String path = extractPath(httpRequest);
+        if (path == null)
             return null;
-
-        return microservice.searchApi(pathArray[1], pathArray[2]);
+        return microservice.searchApi("", path);
     }
 
     private RestApi findApiWithCookie(HttpRequest httpRequest, Set<Cookie> cookies) throws Exception {
         RestApi result = null;
-        String path = createPath(httpRequest);
+        String path = extractPath(httpRequest);
         for (Cookie cookie : cookies) {
             if (cookie.getName().contains(path)) {
                 try {
@@ -131,7 +130,7 @@ class HttpRouter {
     }
 
     private boolean cookieMatchesUri(HttpRequest httpRequest) throws URISyntaxException {
-        return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(createPath(httpRequest));
+        return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(extractPath(httpRequest));
     }
 
     private ConcurrentSkipListSet<Cookie> decodeCookies(HttpRequest request) {
@@ -159,18 +158,12 @@ class HttpRouter {
         return cookie;
     }
 
-    private String createPath(HttpRequest httpRequest) throws URISyntaxException {
-        String[] pathArray = getPathArray(httpRequest);
-        if (pathArray.length < 3) return "";
-        return String.format("%s/%s", pathArray[1], pathArray[2]);
-    }
-
-    private String[] getPathArray(HttpRequest httpRequest) {
+    private String extractPath(HttpRequest httpRequest) {
         try {
-            return new URI(httpRequest.getUri()).getPath().split("/");
+            return new URI(httpRequest.getUri()).getPath();
         } catch (URISyntaxException e) {
             log.warn("Unable to split request {}", httpRequest.getUri());
-            return EMPTY_PATH;
+            return "----------------------";
         }
     }
 

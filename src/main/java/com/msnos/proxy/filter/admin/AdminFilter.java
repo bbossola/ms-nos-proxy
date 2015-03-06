@@ -12,21 +12,33 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.util.CharsetUtil;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.littleshoot.proxy.HttpFiltersAdapter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.workshare.msnos.core.geo.Location;
 import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.api.routing.ApiRepository;
+import com.workshare.msnos.usvc.api.RestApi;
+import com.workshare.msnos.usvc.api.routing.ApiEndpoint;
+import com.workshare.msnos.usvc.api.routing.ApiList;
 
 public class AdminFilter extends HttpFiltersAdapter {
-    private final HttpRequest request;
+    
+    private static final String PATH_ADMIN_PING = "admin/ping";
+    private static final String PATH_ADMIN_ROUTES = "admin/routes";
+    private static final String PATH_ADMIN_MICROSERVICES = "admin/microservices";
+    
     private final Microcloud microcloud;
-
+    private final HttpRequest request;
+    
     private final ThreadLocal<Gson> gson = new ThreadLocal<Gson>() {
         @Override
         protected Gson initialValue() {
@@ -44,9 +56,9 @@ public class AdminFilter extends HttpFiltersAdapter {
     public HttpResponse requestPre(HttpObject httpObject) {
         HttpResponse response = null;
         if (httpObject instanceof HttpRequest) {
-            if (request.getUri().contains("admin/microservices")) response = microservices();
-            if (request.getUri().contains("admin/routes")) response = routes();
-            if (request.getUri().contains("admin/ping")) response = pong();
+            if (request.getUri().contains(PATH_ADMIN_MICROSERVICES)) response = microservices();
+            if (request.getUri().contains(PATH_ADMIN_ROUTES)) response = routes();
+            if (request.getUri().contains(PATH_ADMIN_PING)) response = pong();
         }
         return response != null ? response : new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND);
     }
@@ -62,11 +74,65 @@ public class AdminFilter extends HttpFiltersAdapter {
 
 
     private HttpResponse routes() {
-        ApiRepository apis = microcloud.getApis();
-        String content = gson.get().toJson(apis);
+        String argument = getArgument(PATH_ADMIN_ROUTES);
+        
+        Map<String, List<JsonObject>> result = new HashMap<String, List<JsonObject>>();
+        Map<String, ApiList> apis = microcloud.getApis().getRemoteApis();
+        for (String path : apis.keySet()) {
+            final ApiList list = apis.get(path);
+            if (!path.contains(argument))
+                continue;
+
+            final List<JsonObject> entries = new ArrayList<JsonObject>();
+            result.put(path, entries);
+
+            for (ApiEndpoint endpoint : list.getEndpoints()) {
+                final RestApi api = endpoint.api();
+                final Location loc = endpoint.location();
+                final RemoteMicroservice svc = endpoint.service();
+
+                JsonObject entry = new JsonObject();
+                entry.addProperty("service", svc.getName());
+                entry.addProperty("url", api.getUrl());
+                entry.addProperty("type", api.getType().toString());
+                entry.addProperty("faulty", isFaulty(api));
+                entry.addProperty("sticky", api.hasAffinity());
+                entry.addProperty("priority", api.getPriority());
+                entry.addProperty("location", loc.toString());
+                entries.add(entry);
+            }
+        }
+        
+        String content = gson.get().toJson(result);
         DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
         return resp;
+    }
+
+    private String getArgument(String path) {
+        try {
+            final String uri = request.getUri().toLowerCase();
+            final String argument = uri.substring(uri.indexOf(path) + path.length()+1);
+            return argument;
+        } catch (Exception whatever) {
+            return "";
+        }
+    }
+
+    private String isFaulty(RestApi api) {
+        StringBuffer sb = new StringBuffer();
+        if (api.isFaulty() || api.getTempFaults() > 0) {
+            sb.append("yes");
+            if (api.getTempFaults() > 0) {
+                sb.append("(temporary: ");
+                sb.append(api.getTempFaults());
+                sb.append(")");
+            }
+                
+        } else
+            sb.append("no");
+
+        return sb.toString();
     }
 
     private HttpResponse pong() {
