@@ -38,7 +38,7 @@ public class HttpRouterTest extends AbstractTest {
         RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.20.10.102");
 
         HttpRouter router = new HttpRouter(request, microservice);
-        simulateMessageFromCloud(new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.FLT, cloud.getIden(), microservice.getAgent().getIden()).with(2).with(UUID.randomUUID()).reliable(false).with(new FltPayload(remote.getAgent().getIden())).make());
+        simulateMessageFromCloud(new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.FLT, cloud.getIden(), microservice.getAgent().getIden()).withHops(2).with(UUID.randomUUID()).reliable(false).with(new FltPayload(remote.getAgent().getIden())).make());
         simulateMessageFromCloud(new MessageBuilder(Message.Type.FLT, cloud, microservice.getAgent().getIden()).with(new FltPayload(remote.getAgent().getIden())).with(UUID.randomUUID()).make());
 
         router.routeRequest(request);
