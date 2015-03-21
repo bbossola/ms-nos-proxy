@@ -2,22 +2,22 @@ package com.msnos.proxy.filter;
 
 import io.netty.handler.codec.http.HttpResponse;
 
-/**
- * Created by rhys on 19/09/14.
- */
 public class HttpRetry implements Retry {
+
     @Override
     public boolean isNeeded(HttpResponse response) {
-        boolean result = false;
-        String respCode = Integer.toString(response.getStatus().code());
-        if (respCode.matches("4[0-9]+")) result = clientErr(response);
-        if (respCode.matches("5[0-9][1-9]")) result = true;
-        return result;
+        final int statusCode = response.getStatus().code();
+        if (statusCode < 300)
+            return false;
+        else if (statusCode >= 500)
+            return true;
+        else
+            return isErrorRecoverable(response.getStatus().code());
     }
 
-    private boolean clientErr(HttpResponse response) {
+    private boolean isErrorRecoverable(final int statusCode) {
         boolean result;
-        switch (response.getStatus().code()) {
+        switch (statusCode) {
             case 404:
                 result = true;
                 break;
