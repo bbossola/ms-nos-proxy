@@ -28,7 +28,7 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
         HttpResponse response = null;
         if (httpObject instanceof HttpRequest) {
             HttpRequest request = (HttpRequest) httpObject;
-            response = router.routeRequest(request);
+            response = router.computeApiRoute(request);
         }
         return response != null ? response : super.requestPre(httpObject);
     }
@@ -39,7 +39,7 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
         if (httpObject instanceof HttpResponse) {
             HttpResponse response = (HttpResponse) httpObject;
-            return router.handleResponse(response);
+            return router.handleApiResponse(response);
         }
         return httpObject;
     }

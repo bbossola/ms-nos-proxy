@@ -52,49 +52,23 @@ public class Proxy {
     public void start() throws Exception {
         HttpProxyServerBootstrap redo = DefaultHttpProxyServer
                 .bootstrap()
+                .withPort(redirectPort)
                 .withName("500")
                 .withFiltersSource(getAlwaysUnavailableFilter())
-                .withTransparent(true);
+                .withTransparent(true)
+                .withAllowLocalOnly(false);
         
         HttpProxyServerBootstrap main = DefaultHttpProxyServer
                 .bootstrap()
+                .withPort(mainPort)
                 .withName("MAIN")
                 .withFiltersSource(getHttpFiltersSourceAdapter())
                 .withChainProxyManager(chainedProxyManager())
-                .withTransparent(true);
-
-        bindToNetworkInterfaces(redo, main);
+                .withTransparent(true)
+                .withAllowLocalOnly(false);
 
         main.start();
         redo.start();
-    }
-
-    public void bindToNetworkInterfaces(HttpProxyServerBootstrap redo, HttpProxyServerBootstrap main) throws Exception {
-        
-        // localhost
-        bind(main, InetAddress.getLocalHost(), "main", mainPort);
-        bind(redo, InetAddress.getLocalHost(), "final redirect endpoint", redirectPort);
-
-        // all local interfaces 
-        Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
-        Set<Network> nets = Network.listAll(nics, true, false, new AddressResolver(){
-            public Network findPublicIP() throws IOException {
-                return null;
-            }
-        });
-
-        for (Network net : nets) {
-            byte[] addr = net.getAddress();
-            final InetAddress inetAddress = InetAddress.getByAddress(addr);
-            bind(main, inetAddress, "main", mainPort);
-            bind(redo, inetAddress, "final redirect endpoint", redirectPort);
-        }
-    }
-
-    public void bind(HttpProxyServerBootstrap boot, final InetAddress byAddress, String iden, final int port) {
-        final InetSocketAddress socketAddr = new InetSocketAddress(byAddress, port);
-        boot.withAddress(socketAddr);
-        log.info("Binding address {} to {}", socketAddr, iden);
     }
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {

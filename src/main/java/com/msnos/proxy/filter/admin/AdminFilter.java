@@ -13,16 +13,25 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.util.CharsetUtil;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import org.littleshoot.proxy.HttpFiltersAdapter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.workshare.msnos.core.Agent;
+import com.workshare.msnos.core.Cloud;
+import com.workshare.msnos.core.Ring;
 import com.workshare.msnos.core.geo.Location;
+import com.workshare.msnos.usvc.IMicroService;
 import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
@@ -34,10 +43,12 @@ public class AdminFilter extends HttpFiltersAdapter {
     
     private static final String PATH_ADMIN_PING = "admin/ping";
     private static final String PATH_ADMIN_ROUTES = "admin/routes";
+    private static final String PATH_ADMIN_RINGS = "admin/rings";
     private static final String PATH_ADMIN_MICROSERVICES = "admin/microservices";
     
     private final Microcloud microcloud;
     private final HttpRequest request;
+    private final Microservice microservice;
     
     private final ThreadLocal<Gson> gson = new ThreadLocal<Gson>() {
         @Override
@@ -49,6 +60,7 @@ public class AdminFilter extends HttpFiltersAdapter {
     public AdminFilter(HttpRequest request, Microservice microservice) {
         super(request);
         this.request = request;
+        this.microservice = microservice;
         this.microcloud = microservice.getCloud();
     }
 
@@ -58,6 +70,7 @@ public class AdminFilter extends HttpFiltersAdapter {
         if (httpObject instanceof HttpRequest) {
             if (request.getUri().contains(PATH_ADMIN_MICROSERVICES)) response = microservices();
             if (request.getUri().contains(PATH_ADMIN_ROUTES)) response = routes();
+            if (request.getUri().contains(PATH_ADMIN_RINGS)) response = rings();
             if (request.getUri().contains(PATH_ADMIN_PING)) response = pong();
         }
         return response != null ? response : new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND);
@@ -71,7 +84,6 @@ public class AdminFilter extends HttpFiltersAdapter {
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
         return resp;
     }
-
 
     private HttpResponse routes() {
         String argument = getArgument(PATH_ADMIN_ROUTES);
@@ -109,6 +121,68 @@ public class AdminFilter extends HttpFiltersAdapter {
         return resp;
     }
 
+    @SuppressWarnings("unchecked")
+    private HttpResponse rings() {
+        Cloud cloud = microcloud.getCloud();
+        Collection<JsonObject> rings = createRingMap(cloud.getRemoteAgents(), cloud.getLocalAgents());
+        String content = gson.get().toJson(rings);
+        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
+        resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
+        return resp;
+    }
+
+    private Collection<JsonObject> createRingMap(Collection<? extends Agent>... agents_array) {
+        final Set<Agent> all = new HashSet<Agent>();
+        for (Collection<? extends Agent> collection : agents_array) {
+            for (Agent agent : collection) {
+                all.add(agent);
+            }
+        }
+        
+        final Map<UUID, JsonObject> rings = new HashMap<UUID, JsonObject>();
+        for (Agent agent : all) {
+            Ring ring = agent.getRing();
+            JsonObject data = rings.get(ring.uuid());
+            if (data == null) {
+                data = new JsonObject();
+                data.addProperty("uuid", ring.uuid().toString());
+                data.addProperty("location", ring.location().toString());
+                data.add("agents", new JsonArray());
+                rings.put(ring.uuid(), data);
+            }
+
+            JsonObject friend = new JsonObject();
+            friend.addProperty("agent", agent.getIden().getUUID().toString());
+            final IMicroService uservice = findMicroserviceName(agent);
+            if (uservice != null) {
+                friend.addProperty("uservice", uservice.getName());
+                friend.addProperty("location", uservice.getLocation().toString());
+            } else {
+                friend.addProperty("uservice", "n/a");
+            }
+            
+            JsonArray friends = (JsonArray) data.get("agents");
+            friends.add(friend);
+        }
+        
+        return rings.values();
+    }
+
+
+    private IMicroService findMicroserviceName(Agent agent) {
+        if (microservice.getAgent().equals(agent)) {
+            return microservice;
+        }
+
+        List<RemoteMicroservice> services = microcloud.getMicroServices();
+        for (RemoteMicroservice service : services) {
+            if (service.getAgent().equals(agent)) {
+                return service;
+            }
+        }
+
+        return null;
+    }
     private String getArgument(String path) {
         try {
             final String uri = request.getUri().toLowerCase();

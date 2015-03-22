@@ -1,7 +1,5 @@
 package com.msnos.proxy;
 
-import java.util.UUID;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,22 +11,29 @@ public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Proxy.class);
 
-    private static int port = Integer.getInteger("proxy.port", 9998);
-
     public static void main(String[] args) throws Exception {
-        final Microcloud nimbus = new Microcloud(new Cloud(new UUID(111, 222)));
+        CliParams params = new CliParams(args);
+        
+        final Microcloud nimbus = new Microcloud(new Cloud(params.uuid()));
+        log.info("Cloud: {}", nimbus);
 
         final Microservice myself = new Microservice("Proxy");
         myself.join(nimbus);
+        log.info("Userv: {}", myself);
 
-//        RestApi restApi = new RestApi("Proxy", "test", port);
-//        myself.publish(restApi);
-
-//        ProxyApiWatchdog watchdog = new ProxyApiWatchdog(microservice);
-//        watchdog.start();
-
-        log.info("Starting proxy on port {}", port);
-        Proxy proxy = new Proxy(myself, port);
+        System.out.println("---------------------------------------------");
+        System.out.println("MS/NOS Dynamic Proxy 1.0");
+        System.out.println("- port: "+params.port());
+        System.out.println("- uuid: "+params.uuid());
+        
+        Proxy proxy = new Proxy(myself, params.port());
         proxy.start();
+        
+        if (Boolean.getBoolean("com.msnos.proxy.api.republisher")) {
+            System.out.println("Republishing peoxy is also enabled!");
+            ProxyApiWatchdog watchdog = new ProxyApiWatchdog(myself, params.port());
+            watchdog.start();
+            log.info("watchdoh started!");
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.msnos.proxy.filter.http;
 
 import com.msnos.proxy.filter.HttpRetry;
 import com.msnos.proxy.filter.Retry;
+import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
 import com.workshare.msnos.usvc.api.RestApi.Type;
@@ -24,42 +25,64 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 class HttpRouter {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRouter.class);
+
+    private static final int MAX_FAILURES = Integer.getInteger("com.msnos.proxy.api.failures.max", 4);
+
+    public static final String COOKIE_PREFIX = "x-msnos-";
+    public static final String COOKIE_API_ID_FORMAT = COOKIE_PREFIX+"%s";
     public static final String[] EMPTY_PATH = new String[]{};
 
-    private final Microservice microservice;
-    private final HttpRequest originalRequest;
-    private final Retry retry;
-    private final int tempRetries;
+    private static final Retry RETRY = new HttpRetry();
 
-    private RestApi rest;
+    private final Microcloud microcloud;
+    private final Microservice microservice;
+    private final String path;
+
+    private RestApi api;
     private Set<Cookie> cookies;
 
     public HttpRouter(HttpRequest originalRequest, Microservice microservice) {
-        this.originalRequest = originalRequest;
+        this.microcloud = microservice.getCloud();
         this.microservice = microservice;
-        this.tempRetries = Integer.getInteger("temporary.api.retries", 4);
-        this.retry = new HttpRetry();
+        this.path = extractPath(originalRequest);
     }
 
-    public HttpResponse routeRequest(HttpRequest request) {
+    public HttpResponse computeApiRoute(HttpRequest request) {
 
         try {
-            if (cookieMatchesUri(request)) {
+            boolean affinity = cookieMatchesUri(request);
+            if (affinity) {
                 cookies = decodeCookies(request);
-                rest = findApiWithCookie(request, cookies);
-            } else {
-                rest = findApi(request);
+                api = findApiWithCookie(request, cookies);
+            } 
+            
+            if (api == null) {
+                api = microservice.searchApi(path);
             }
 
-            if (rest == null || rest.getType() != Type.PUBLIC) {
-                log.debug("Request search found no suitable rest api for {} ", request.getUri());
+            if (api != null && api.getType() != Type.PUBLIC) {
+                log.warn("An attempt to call the restricted api {} was done ", api);
                 return createResponse(NOT_FOUND);
             }
+            
+            if (api == null) {
+                if (microcloud.canServe(path)) {
+                    log.info("A suitable rest api for {} is present but it's not working :(", request.getUri());
+                    return createResponse(BAD_GATEWAY);
+                } else {
+                    log.debug("Request search found no suitable rest api for {} ", request.getUri());
+                    return createResponse(NOT_FOUND);
+                }
+            }
+            
+            if (api.isFaulty()) {
+                if (affinity)
+                    return createResponse(BAD_GATEWAY);
+                else
+                    return createRetryResponse();
+            }
 
-            if (rest.isFaulty())
-                return createRetryResponse();
-
-            request.setUri(rest.getUrl());
+            request.setUri(api.getUrl());
             return null;
         } catch (Exception ex) {
             log.error("General exception requesting " + request.getUri(), ex);
@@ -67,23 +90,24 @@ class HttpRouter {
         }
     }
 
-    public HttpResponse handleResponse(HttpResponse response) {
+    public HttpResponse handleApiResponse(HttpResponse response) {
 
-        if (faultyResponseAndNoOtherRestApi(response))
-            return noWorkingRestApiResponse();
-
-        if (rest == null)
+        if (api == null)
             return response;
 
-        if (retry.isNeeded(response)) {
+        if (RETRY.isNeeded(response)) {
             markApiFaultyStatus();
 
-            response = createRetryResponse();
-            DefaultCookie cookie = createDeleteCookie(rest);
-            setCookieOnResponse(response, cookie);
+            if (microservice.searchApi(path) == null) {
+                response = noWorkingRestApiResponse();
+            } else {
+                response = createRetryResponse();
+                DefaultCookie cookie = createDeleteCookie(api);
+                setCookieOnResponse(response, cookie);
+            }
         } else {
-            if (rest.hasAffinity()) {
-                DefaultCookie cookie = createCookie(rest);
+            if (api.hasAffinity()) {
+                DefaultCookie cookie = createCookie(api);
                 if (cookies == null || !cookies.contains(cookie)) {
                     setCookieOnResponse(response, cookie);
                 }
@@ -94,27 +118,19 @@ class HttpRouter {
     }
 
     private void markApiFaultyStatus() {
-        if (rest.getTempFaults() < tempRetries) {
-            rest.markTempFault();
+        if (api.getTempFaults() < MAX_FAILURES) {
+            api.markTempFault();
         } else {
-            rest.markFaulty();
+            api.markFaulty();
         }
-    }
-
-    private RestApi findApi(HttpRequest httpRequest) {
-        String path = extractPath(httpRequest);
-        if (path == null)
-            return null;
-        return microservice.searchApi("", path);
     }
 
     private RestApi findApiWithCookie(HttpRequest httpRequest, Set<Cookie> cookies) throws Exception {
         RestApi result = null;
-        String path = extractPath(httpRequest);
         for (Cookie cookie : cookies) {
             if (cookie.getName().contains(path)) {
                 try {
-                    result = microservice.getCloud().searchApiById(Long.parseLong(cookie.getValue()));
+                    result = microcloud.searchApiById(Long.parseLong(cookie.getValue()));
                     break;
                 } catch (NumberFormatException e) {
                     log.error("Invalid value for cookie {}", cookie.toString());
@@ -122,15 +138,13 @@ class HttpRouter {
                 }
             }
         }
-        return result;
-    }
-
-    private boolean faultyResponseAndNoOtherRestApi(HttpResponse response) {
-        return response.getStatus().equals(INTERNAL_SERVER_ERROR) && findApi(originalRequest) == null;
+        
+        return result == null ? null : (result.isFaulty() ? null : result);
     }
 
     private boolean cookieMatchesUri(HttpRequest httpRequest) throws URISyntaxException {
-        return httpRequest.headers().get(COOKIE) != null && httpRequest.headers().get(COOKIE).contains(extractPath(httpRequest));
+        final String cookieHeader = httpRequest.headers().get(COOKIE);
+        return cookieHeader != null && cookieHeader.contains(path);
     }
 
     private ConcurrentSkipListSet<Cookie> decodeCookies(HttpRequest request) {
@@ -146,7 +160,7 @@ class HttpRouter {
     }
 
     private DefaultCookie createCookie(RestApi rest) {
-        DefaultCookie cookie = new DefaultCookie(String.format("x-%s/%s", rest.getName(), rest.getPath()), Long.toString(rest.getId()));
+        DefaultCookie cookie = new DefaultCookie(String.format(COOKIE_API_ID_FORMAT, rest.getPath()), Long.toString(rest.getId()));
         cookie.setPath("/");
         return cookie;
     }
@@ -172,8 +186,8 @@ class HttpRouter {
     }
 
     private HttpResponse noWorkingRestApiResponse() {
-        String respString = String.format("All endpoints for %s are momentarily faulty", originalRequest.getUri());
-        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.GATEWAY_TIMEOUT, writeContent(respString));
+        String respString = String.format("All endpoints for %s are momentarily faulty", path);
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, writeContent(respString));
         response.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
         return response;
     }
@@ -181,7 +195,7 @@ class HttpRouter {
     private HttpResponse createRetryResponse() {
         HttpResponse response;
         response = createResponse(FOUND);
-        response.headers().add(LOCATION, originalRequest.getUri());
+        response.headers().add(LOCATION, path);
         return response;
     }
 

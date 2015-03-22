@@ -1,162 +1,269 @@
 package com.msnos.proxy.filter.http;
 
-import com.msnos.proxy.filter.AbstractTest;
-import com.workshare.msnos.core.RemoteAgent;
-import com.workshare.msnos.usvc.Microcloud;
-import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.RemoteMicroservice;
-import com.workshare.msnos.usvc.api.RestApi;
-import io.netty.handler.codec.http.*;
+import static com.msnos.proxy.filter.http.HttpRouter.COOKIE_PREFIX;
+import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.LOCATION;
+import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static com.msnos.proxy.TestHelper.*;
+
+import java.awt.List;
+import java.util.UUID;
+
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+
+import io.netty.handler.codec.http.ClientCookieEncoder;
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.DefaultCookie;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.ServerCookieEncoder;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.HttpFilters;
-import org.mockito.Mockito;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.*;
-import static junit.framework.TestCase.*;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+import com.msnos.proxy.TestHelper;
+import com.msnos.proxy.filter.AbstractTest;
+import com.workshare.msnos.core.Message;
+import com.workshare.msnos.core.MessageBuilder;
+import com.workshare.msnos.core.RemoteAgent;
+import com.workshare.msnos.core.payloads.FltPayload;
+import com.workshare.msnos.usvc.Microcloud;
+import com.workshare.msnos.usvc.Microservice;
+import com.workshare.msnos.usvc.api.RestApi;
+import com.workshare.msnos.usvc.api.routing.ApiList;
 
-public class HttpProxyFilterTest extends AbstractTest {
+@SuppressWarnings("unused")
+public class HttpProxyFilterTest {
 
-    private HttpRequest defaultHttpRequest;
+    private static final String SERVICE = "service";
+    private static final String PATH = "/path";
+    private static final String HOST = "10.10.10.1";
+    
+    private Microcloud microcloud;
     private Microservice microservice;
-    private HttpProxyFilter filter;
 
+    private HttpProxyFilter filter;
+    private HttpRequest request;
+    
+    private ApiList apis;
+    
     @Before
     public void prepare() throws Exception {
-        super.prepare();
-
-        defaultHttpRequest = httpRequest("/service", "/path");
+        
+        request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, PATH);
         filter = null;
+        
+        microcloud = mock(Microcloud.class);
+        microservice = createMockMicroservice();
+
+        apis = new ApiList();
     }
 
     @Test
     public void shouldInvokeSearchWithCorrectParameters() throws Exception {
-        microservice = createMockMicroserviceWithRestApi("service", "path", 1111, "10.10.20.13/123");
 
-        filter().requestPre(defaultHttpRequest);
-
-        verifyCorrectMicroserivceSearch(microservice, "service", "path");
-    }
-
-
-    @Test
-    public void shouldPopulateCorrectlyTheRequestURI() throws Exception {
-        RestApi api = new RestApi("service", "path", 1111, "10.10.20.13");
-        microservice = createMockMicroservice(api);
-
-        filter().requestPre(defaultHttpRequest);
-
-        assertEquals(api.getUrl(), defaultHttpRequest.getUri());
+        invoke();
+        
+        verify(microservice).searchApi(PATH);
     }
 
     @Test
-    public void shouldAddCookieWhenWhenRestHasSessionAffinity() throws Exception {
-        microservice = mock(Microservice.class);
-        RestApi api = getRestApiWithAffinityPutInMicroserivceSearch("service", "path");
+    public void shouldPopulateRequestURIWithTheApiFullUrl() throws Exception {
+        RestApi api = new RestApi(SERVICE, PATH, 1111);
+        installApi(PATH, api);
 
-        filter().requestPre(defaultHttpRequest);
-        HttpResponse actual = (HttpResponse) filter.responsePre(validHttpResponse());
+        invoke();
 
-        assertEquals(expectedCookie(api), getHeaders(actual).get(SET_COOKIE));
+        assertEquals(api.getUrl(), request.getUri());
+    }
+
+    @Test
+    public void shouldReturn404WhenSearchesReturnsNull() throws Exception {
+        installApi("/foo");
+        
+        HttpResponse response = invoke();
+
+        assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
+    }
+
+    
+    @Test
+    public void shouldAddCookieWhenWhenApiHasSessionAffinity() throws Exception {
+        RestApi api = new RestApi(SERVICE, PATH, 1111, HOST).withAffinity();
+        installApi(PATH, api);
+
+        HttpResponse response = invoke();
+        
+        assertEquals(expectedCookie(api), getHeaders(response).get(SET_COOKIE));
     }
 
     @Test
     public void shouldInvokeSearchByIDWhenCookiePresent() throws Exception {
-        microcloud = mock(Microcloud.class);
-        microservice = mock(Microservice.class);
-        when(microservice.getCloud()).thenReturn(microcloud);
-        
-        addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Integer.toString(1)));
-        filter().requestPre(defaultHttpRequest);
+        final long id = 12345L;
+        addHeadersToRequest(request, COOKIE, affinityCookie(id));
 
-        verify(microcloud).searchApiById(anyLong());
+        invoke();
+    
+        verify(microcloud).searchApiById(id);
     }
+
+    @Test
+    public void shouldInvokeStandardSearchWhenSearchByCookieFails() throws Exception {
+        addHeadersToRequest(request, COOKIE, affinityCookie(Long.MAX_VALUE));
+
+        invoke();
+    
+        verify(microservice).searchApi(PATH);
+    }
+
+    @Test
+    public void shouldInvokeStandardSearchWhenFunnyAffinityCookieFound() throws Exception {
+        addHeadersToRequest(request, COOKIE, ServerCookieEncoder.encode(COOKIE_PREFIX+PATH, "Boom!"));
+
+        invoke();
+    
+        verify(microcloud, never()).searchApiById(anyLong());
+        verify(microservice).searchApi(PATH);
+    }
+
 
     @Test
     public void shouldReturnCorrectAPIWhenMultipleAffinityHeldInCookie() throws Exception {
-        microservice = createLocalMicroserviceAndJoinCloud();
+        
+        RestApi thisApi = installApi(PATH, new RestApi(SERVICE, PATH, 1111).withAffinity());
+        RestApi othrApi = installApi(PATH, new RestApi("other", "/foo", 9999).withAffinity());
+        addApisCookie(thisApi, othrApi);
 
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "10.10.2.1/123");
-        setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1");
-        defaultHttpRequest = createRequestWithMultipleCookieValues("/service", "/path", "/other", "/diff", getRestApiId(remote));
+        invoke();
 
-        filter().requestPre(defaultHttpRequest);
-
-        String url = getRestApiUrl(remote);
-        assertEquals(url, defaultHttpRequest.getUri());
+        assertEquals(thisApi.getUrl(), request.getUri());
     }
 
     @Test
-    public void shouldReturn404WhenSearchesReturnNull() throws Exception {
-        microservice = createLocalMicroserviceAndJoinCloud();
+    public void shouldFollowToNextAlternativeAndNoCookieWhenAffiniteRestApiIsFaultyAndAlternativeIsAvailable() throws Exception {
 
-        setupRemoteMicroserviceWithAffinity("other", "diff", "11.14.2.1");
-        HttpResponse response = filter().requestPre(defaultHttpRequest);
+        RestApi api = installApi(PATH, new RestApi(SERVICE, PATH, 1111).withAffinity()).markFaulty();
+        RestApi two = installApi(PATH, new RestApi(SERVICE, PATH, 9999));
 
-        DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
-        assertEquals(expected.toString(), response.toString());
+        addHeadersToRequest(request, COOKIE, affinityCookie(api.getId()));
+        HttpResponse response = invoke();
+
+        assertEquals(request.getUri(), two.getUrl());
+        assertFalse(response.headers().contains(affinityCookie(api.getId())));
+    }
+    
+    @Test
+    public void shouldReturnBadGatewayAndNoCookieWhenAffiniteRestApiIsFaultyAndNoAlternatives() throws Exception {
+
+        RestApi api = installApi(PATH, new RestApi(SERVICE, PATH, 1111).withAffinity());
+        api.markFaulty();
+
+        addHeadersToRequest(request, COOKIE, affinityCookie(api.getId()));
+        HttpResponse response = invoke();
+
+        assertEquals(HttpResponseStatus.BAD_GATEWAY, response.getStatus());
+        assertFalse(request.headers().contains(affinityCookie(api.getId())));
     }
 
     @Test
-    public void should302WhenAffiniteRestApiIsFaulty() throws Exception {
-        defaultHttpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://127.0.0.1:9999/service/path");
-        microservice = createLocalMicroserviceAndJoinCloud();
-
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
-        addHeadersToRequest(defaultHttpRequest, COOKIE, encodeCookie("x-/service/path", Long.toString(getRestApiId(remote))));
-        makeApiFaulty(remote);
-
-        HttpResponse response = filter().requestPre(defaultHttpRequest);
-
-        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
-        assertTrue(getHeaders(response).contains(LOCATION));
-        assertEquals(defaultHttpRequest.getUri(), getHeaders(response).get(LOCATION));
-        assertFalse(defaultHttpRequest.headers().contains(encodeCookie("x-service/path", Long.toString(getRestApiId(remote)))));
-    }
-
-    @Test
-    public void shouldMarkRestApiTempFaultyAndRedirectWhen5xx() throws Exception {
-        microservice = createLocalMicroserviceAndJoinCloud();
-        RemoteMicroservice remote = setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
-        setupRemoteMicroserviceWithAffinity("service", "path", "11.14.2.1");
-
-        filter().requestPre(defaultHttpRequest);
-        HttpResponse response = (HttpResponse) filter().responsePre(makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY));
-
-        assertEquals(1, getRestApi(remote).getTempFaults());
+    public void shouldReturnRedirectOnApiTemporaryFaultAndNoAlternativesAvailable() throws Exception {
+        final RestApi api = installApi(PATH);
+        
+        HttpResponse response = invoke(internalError());
+       
         assertEquals(HttpResponseStatus.FOUND, response.getStatus());
     }
+
+    @Test
+    public void shouldReturnBadGatewayWhenApiFaultyAndNoAlternativesAvailable() throws Exception {
+        final RestApi api = installApi(PATH);
+        api.markFaulty();
+        
+        HttpResponse response = invoke();
+       
+        assertEquals(HttpResponseStatus.BAD_GATEWAY, response.getStatus());
+    }
+
+    @Test
+    public void shouldMarkRestApiTempFaultyAndRedirectWhenReceiving5xxWithAlternatives() throws Exception {
+        final RestApi api = installApi(PATH);
+        final RestApi two = installApi(PATH);
+
+        HttpResponse response = invoke(internalError());
+
+        assertEquals(1, api.getTempFaults());
+    }
+
 
     @Test
     public void shouldNOTServeClientApiMarkedAsHealthCheck() throws Exception {
-        microservice = createLocalMicroserviceAndJoinCloud();
+        installApi(PATH, new RestApi(SERVICE, PATH, 1111, HOST, RestApi.Type.HEALTHCHECK, false));
 
-        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1", RestApi.Type.HEALTHCHECK);
-        HttpResponse response = filter().requestPre(defaultHttpRequest);
+        HttpResponse response = invoke();
 
-        DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
-        assertEquals(expected.toString(), response.toString());
+        assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
     }
 
     @Test
     public void shouldNOTServeClientApiMarkedAsInternal() throws Exception {
-        microservice = createLocalMicroserviceAndJoinCloud();
+        installApi(PATH, new RestApi(SERVICE, PATH, 1111, HOST, RestApi.Type.INTERNAL, false));
 
-        setupRemoteMicroserviceWithApiAs("service", "path", "11.14.2.1", RestApi.Type.INTERNAL);
-        HttpResponse response = filter().requestPre(defaultHttpRequest);
+        HttpResponse response = invoke();
 
-        DefaultFullHttpResponse expected = makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
-        assertEquals(expected.toString(), response.toString());
+        assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
     }
 
-    private RemoteMicroservice setupRemoteMicroserviceWithApiAs(String name, String endpoint, String host, RestApi.Type type) {
-        RestApi restApi = new RestApi(name, endpoint, 9999, host, type, false);
-        RemoteAgent agent = newRemoteAgent();
-        RemoteMicroservice remote = new RemoteMicroservice(name, agent, toSet(restApi));
-        return addRemoteAgentToCloudListAndMicroserviceToLocalList(name, remote, restApi);
+    private RestApi installApi(final String path) {
+        return installApi(path, new RestApi(SERVICE, path, 9999));
+    }
+
+    private RestApi installApi(final String path, final RestApi api) {
+        
+        if (apis.size() == 0) {
+            Answer<RestApi> answer = new Answer<RestApi>(){
+                @Override
+                public RestApi answer(InvocationOnMock invocation) throws Throwable {
+                    final RestApi restApi = apis.get(microservice);
+                    return restApi;
+                }};
+    
+            when(microcloud.canServe(path)).thenReturn(true);
+            when(microcloud.searchApi(microservice, path)).thenAnswer(answer);
+            when(microcloud.searchApiById(api.getId())).thenAnswer(answer);
+            when(microservice.searchApi(path)).thenAnswer(answer);
+        }
+        
+        apis.add(TestHelper.newRemoteMicroservice(), api);
+        return api;
+    }
+
+    private void assertRedirectTo(HttpResponse response, final String uri) {
+        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
+        assertEquals(uri, getHeaders(response).get(LOCATION));
+    }
+
+    private String affinityCookie(Long value) {
+        return ServerCookieEncoder.encode(COOKIE_PREFIX+PATH, value.toString());
     }
 
     private String encodeCookie(String name, String value) {
@@ -167,92 +274,51 @@ public class HttpProxyFilterTest extends AbstractTest {
         request.headers().add(name, value);
     }
 
-    private RestApi makeApiFaulty(RemoteMicroservice remote) {
-        RestApi api = getRestApi(remote);
-        api.markFaulty();
-        return api;
-    }
-
     private HttpHeaders getHeaders(HttpResponse response) {
         return response.headers();
     }
 
-    private long getRestApiId(RemoteMicroservice remote) {
-        return getRestApi(remote).getId();
-    }
-
-    private String getRestApiUrl(RemoteMicroservice remote) {
-        return getRestApi(remote).getUrl();
-    }
-
-    private RestApi getRestApi(RemoteMicroservice remote) {
-        return remote.getApis().iterator().next();
-    }
-
-    private Microservice createLocalMicroserviceAndJoinCloud() throws Exception {
-        Microservice ms = new Microservice("local");
-        ms.join(microcloud);
-        return ms;
-    }
-
-    private DefaultHttpRequest createRequestWithMultipleCookieValues(String name, String path, String otherName, String otherPath, long restApiId) {
-        DefaultHttpRequest request = httpRequest(name, path);
-        Cookie cookieOne = new DefaultCookie(String.format("x-%s%s", name, path), Long.toString(restApiId));
-        Cookie cookieTwo = new DefaultCookie(String.format("x-%s%s", otherName, otherPath), Integer.toString(1));
+    private void addApisCookie(RestApi one, RestApi two) {
+        Cookie cookieOne = new DefaultCookie(String.format(COOKIE_PREFIX+one.getPath()), Long.toString(one.getId()));
+        Cookie cookieTwo = new DefaultCookie(String.format(COOKIE_PREFIX+two.getPath()), Long.toString(two.getId()));
         addHeadersToRequest(request, COOKIE, ClientCookieEncoder.encode(cookieOne, cookieTwo));
-        return request;
-    }
-
-    private RestApi verifyCorrectMicroserivceSearch(Microservice microservice, String service, String path) throws Exception {
-        return Mockito.verify(microservice).searchApi(service, path);
     }
 
     private String expectedCookie(RestApi api) {
-        return String.format("x-%s/%s=%s; Path=/", api.getName(), api.getPath(), api.getId());
-    }
-
-    private DefaultFullHttpResponse failedHttpResponse() {
-        return makeHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    private DefaultHttpRequest httpRequest(String name, String path) {
-        return new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, name + path);
+        return String.format(COOKIE_PREFIX+"%s=%s; Path=/", api.getPath(), api.getId());
     }
 
     private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest) {
         return new HttpProxyFilter(httpRequest, microservice);
     }
 
-    private Microservice getMockMicroserviceWithIDRestApi(String name, String path, String host, int port) throws Exception {
-        Microservice microservice = mock(Microservice.class);
-        when(microservice.getCloud()).thenReturn(microcloud);
-        
-        RestApi api = new RestApi(name, path, port, host).withAffinity();
-        when(microcloud.searchApiById(anyLong())).thenReturn(api);
-        return microservice;
-    }
-
-    private Microservice createMockMicroserviceWithRestApi(String name, String path, int host, String port) throws Exception {
-        RestApi api = new RestApi(name, path, host, port);
-        return createMockMicroservice(api);
-    }
-
-    private Microservice createMockMicroservice(RestApi api) {
-        Microservice microservice = mock(Microservice.class);
-        Mockito.when(microservice.searchApi(anyString(), anyString())).thenReturn(api);
-        return microservice;
-    }
-
-    private RestApi getRestApiWithAffinityPutInMicroserivceSearch(String name, String path) throws Exception {
-        RestApi api = new RestApi(name, path, 1111, "10.10.10.10/123").withAffinity();
-        Mockito.when(microservice.searchApi(anyString(), anyString())).thenReturn(api);
-        return api;
+    private Microservice createMockMicroservice() {
+        Microservice service = mock(Microservice.class);
+        when(service.getCloud()).thenReturn(microcloud);
+        return service;
     }
 
     private HttpFilters filter() {
         if (filter == null)
-            filter = setupHttpProxyFilter(defaultHttpRequest);
+            filter = setupHttpProxyFilter(request);
 
         return filter;
+    }
+
+    private DefaultFullHttpResponse internalError() {
+        return makeHttpResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    public HttpResponse invoke() {
+        return invoke(success());
+    }
+
+    public HttpResponse invoke(DefaultFullHttpResponse apiResponse) {
+        HttpResponse response = filter().requestPre(request);
+        if (response == null) {
+            response = (HttpResponse) filter().responsePre(apiResponse);
+        }
+        
+        return response;
     }
 }
