@@ -20,13 +20,13 @@ public class CliParams {
     @Parameter
     private List<String> parameters = new ArrayList<String>();
 
-    @Parameter(names = "--uuid, -u", description = "Specify the uuid of the cloud to be used", converter = UUIDConverter.class)
+    @Parameter(names = {"--uuid", "-u"}, description = "Specify the uuid of the cloud to be used", converter = UUIDConverter.class)
     private UUID uuid = new UUID(111, 222);
 
-    @Parameter(names = "--port, -p", description = "The port to be used by the proxy (note: it will bind also port+1)")
+    @Parameter(names = {"--port", "-p"}, description = "The port to be used by the proxy (note: it will bind also port+1)")
     private int port = 9991;
 
-    @Parameter(names = "--help, -h", help = true)
+    @Parameter(names = {"--help", "-h"}, description = "Displays this help screen and exits", help = true)
     private boolean help;
 
     public CliParams(String[] args) {
