@@ -25,6 +25,8 @@ public class Main {
         System.out.println("MS/NOS Dynamic Proxy 1.0");
         System.out.println("- port: "+params.port());
         System.out.println("- uuid: "+params.uuid());
+        System.out.println("- cloud: "+nimbus);
+        System.out.println("- micro: "+myself);
         
         Proxy proxy = new Proxy(myself, params.port());
         proxy.start();

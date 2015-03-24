@@ -1,24 +1,19 @@
 <configuration scan="true" scanPeriod="10 seconds">
 
-	<!--  Protocol logger -->
+	<!--  protocol logger -->
     <appender name="proto.appender" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%-2(%d{dd MMM yyyy HH:mm:ss.SSS}) | %msg%n</pattern>
+            <pattern>%msg%n</pattern>
         </encoder>
+        <level value="INFO"/>
     </appender>
 
-    <logger name="protocol" level="WARN" additivity="false">
+    <logger name="protocol" additivity="false">
         <appender-ref ref="proto.appender"/>
     </logger>
 
 
-	<!--  main logger -->
-    <appender name="main.appender" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%-2(%d{dd MMM yyyy HH:mm:ss.SSS}) | %class{0}: %method{20} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
+	<!-- various overrides to avoid noise :) -->
     <logger name="org.apache" level="WARN"/>
     <logger name="org.eclipse" level="WARN"/>
     <logger name="com.barchart" level="WARN"/>
@@ -26,8 +21,16 @@
     <logger name="io.netty.logging" level="WARN"/>
     <logger name="com.msnos.proxy" level="DEBUG"/>
 
-    <root>
+
+	<!--  main logger -->
+    <appender name="main.appender" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%-2(%d{dd MMM yyyy HH:mm:ss.SSS}) | %class{0}: %method{20} - %msg%n</pattern>
+        </encoder>
         <level value="INFO"/>
+    </appender>
+
+    <root>
 		<appender-ref ref="main.appender"/>
     </root>
 

@@ -24,7 +24,7 @@ public class CliParams {
     private UUID uuid = new UUID(111, 222);
 
     @Parameter(names = "--port, -p", description = "The port to be used by the proxy (note: it will bind also port+1)")
-    private int port = 9998;
+    private int port = 9991;
 
     @Parameter(names = "--help, -h", help = true)
     private boolean help;
