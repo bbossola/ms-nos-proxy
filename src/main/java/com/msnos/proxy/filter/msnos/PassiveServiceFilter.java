@@ -1,4 +1,4 @@
-package com.msnos.proxy.filter.passive;
+package com.msnos.proxy.filter.msnos;
 
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;

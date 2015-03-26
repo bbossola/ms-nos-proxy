@@ -1,4 +1,4 @@
-package com.msnos.proxy.filter.passive;
+package com.msnos.proxy.filter.msnos;
 
 import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;

@@ -29,6 +29,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.workshare.msnos.core.Agent;
 import com.workshare.msnos.core.Cloud;
+import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.core.Ring;
 import com.workshare.msnos.core.geo.Location;
 import com.workshare.msnos.usvc.IMicroService;
@@ -45,6 +46,7 @@ public class AdminFilter extends HttpFiltersAdapter {
     private static final String PATH_ADMIN_ROUTES = "admin/routes";
     private static final String PATH_ADMIN_RINGS = "admin/rings";
     private static final String PATH_ADMIN_MICROSERVICES = "admin/microservices";
+    private static final String PATH_ADMIN_AGENTS = "admin/agents";
     
     private final Microcloud microcloud;
     private final HttpRequest request;
@@ -68,6 +70,7 @@ public class AdminFilter extends HttpFiltersAdapter {
     public HttpResponse requestPre(HttpObject httpObject) {
         HttpResponse response = null;
         if (httpObject instanceof HttpRequest) {
+            if (request.getUri().contains(PATH_ADMIN_AGENTS)) response = agents();
             if (request.getUri().contains(PATH_ADMIN_MICROSERVICES)) response = microservices();
             if (request.getUri().contains(PATH_ADMIN_ROUTES)) response = routes();
             if (request.getUri().contains(PATH_ADMIN_RINGS)) response = rings();
@@ -80,6 +83,14 @@ public class AdminFilter extends HttpFiltersAdapter {
     private HttpResponse microservices() {
         List<RemoteMicroservice> micros = microcloud.getMicroServices();
         String content = gson.get().toJson(micros);
+        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
+        resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
+        return resp;
+    }
+
+    private HttpResponse agents() {
+        Collection<RemoteAgent> agents = microcloud.getCloud().getRemoteAgents();
+        String content = gson.get().toJson(agents);
         DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
         return resp;

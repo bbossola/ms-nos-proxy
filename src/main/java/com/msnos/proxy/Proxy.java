@@ -7,14 +7,10 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
 import java.net.UnknownHostException;
-import java.util.Enumeration;
 import java.util.Queue;
-import java.util.Set;
 
 import org.littleshoot.proxy.ChainedProxy;
 import org.littleshoot.proxy.ChainedProxyAdapter;
@@ -30,10 +26,11 @@ import org.slf4j.LoggerFactory;
 
 import com.msnos.proxy.filter.admin.AdminFilter;
 import com.msnos.proxy.filter.http.HttpProxyFilter;
-import com.msnos.proxy.filter.passive.PassiveServiceFilter;
-import com.workshare.msnos.core.protocols.ip.AddressResolver;
-import com.workshare.msnos.core.protocols.ip.Network;
+import com.msnos.proxy.filter.msnos.MsnosFilter;
+import com.msnos.proxy.filter.msnos.PassiveServiceFilter;
 import com.workshare.msnos.usvc.Microservice;
+import com.workshare.msnos.usvc.api.RestApi;
+import com.workshare.msnos.usvc.api.RestApi.Type;
 
 public class Proxy {
 
@@ -69,6 +66,8 @@ public class Proxy {
 
         main.start();
         redo.start();
+        
+        microservice.publish(new RestApi("Proxy", "/msnos", mainPort, null, Type.MSNOS_HTTP, false));
     }
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
@@ -81,7 +80,9 @@ public class Proxy {
                 
                 if (uri.startsWith("/admin")) {
                     return new AdminFilter(request, microservice);
-                } else if (uri.startsWith("/msnos/")) {
+                } else if (uri.startsWith("/msnos")) {
+                    return new MsnosFilter(request, microservice.getCloud());
+                } else if (uri.startsWith("/pasv/")) {
                     return new PassiveServiceFilter(request, microservice.getCloud());
                 } else {
                     return new HttpProxyFilter(request, microservice);

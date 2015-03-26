@@ -15,6 +15,7 @@ import org.junit.Test;
 
 import com.google.gson.JsonParser;
 import com.msnos.proxy.filter.AbstractTest;
+import com.msnos.proxy.filter.msnos.PassiveServiceFilter;
 import com.workshare.msnos.usvc.Microservice;
 
 public class PassiveServiceFilterTest extends AbstractTest {
