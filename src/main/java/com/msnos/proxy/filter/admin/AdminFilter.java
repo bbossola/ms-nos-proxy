@@ -32,7 +32,7 @@ import com.workshare.msnos.core.Cloud;
 import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.core.Ring;
 import com.workshare.msnos.core.geo.Location;
-import com.workshare.msnos.usvc.IMicroService;
+import com.workshare.msnos.usvc.IMicroservice;
 import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.RemoteMicroservice;
@@ -164,7 +164,7 @@ public class AdminFilter extends HttpFiltersAdapter {
 
             JsonObject friend = new JsonObject();
             friend.addProperty("agent", agent.getIden().getUUID().toString());
-            final IMicroService uservice = findMicroserviceName(agent);
+            final IMicroservice uservice = findMicroserviceName(agent);
             if (uservice != null) {
                 friend.addProperty("uservice", uservice.getName());
                 friend.addProperty("location", uservice.getLocation().toString());
@@ -180,7 +180,7 @@ public class AdminFilter extends HttpFiltersAdapter {
     }
 
 
-    private IMicroService findMicroserviceName(Agent agent) {
+    private IMicroservice findMicroserviceName(Agent agent) {
         if (microservice.getAgent().equals(agent)) {
             return microservice;
         }

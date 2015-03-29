@@ -57,7 +57,7 @@ class HttpRouter {
             } 
             
             if (api == null) {
-                api = microservice.searchApi(path);
+                api = microcloud.searchApi(microservice, path);
             }
 
             if (api != null && api.getType() != Type.PUBLIC) {

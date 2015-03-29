@@ -84,7 +84,7 @@ public class HttpProxyFilterTest {
 
         invoke();
         
-        verify(microservice).searchApi(PATH);
+        verify(microcloud).searchApi(microservice, PATH);
     }
 
     @Test
@@ -133,7 +133,7 @@ public class HttpProxyFilterTest {
 
         invoke();
     
-        verify(microservice).searchApi(PATH);
+        verify(microcloud).searchApi(microservice, PATH);
     }
 
     @Test
@@ -143,7 +143,7 @@ public class HttpProxyFilterTest {
         invoke();
     
         verify(microcloud, never()).searchApiById(anyLong());
-        verify(microservice).searchApi(PATH);
+        verify(microcloud).searchApi(microservice, PATH);
     }
 
 
