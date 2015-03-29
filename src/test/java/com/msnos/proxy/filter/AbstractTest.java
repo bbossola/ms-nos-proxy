@@ -104,7 +104,7 @@ public abstract class AbstractTest {
     protected RemoteMicroservice setupRemoteMicroserviceWithAffinity(String name, String endpoint, String host) {
         RemoteAgent agent = newRemoteAgent();
         
-        RestApi restApi = new RestApi(name, endpoint, 9999).onHost(host).withAffinity();
+        RestApi restApi = new RestApi(endpoint, 9999).onHost(host).withAffinity();
         RemoteMicroservice remote = new RemoteMicroservice(name, agent, TestHelper.toSet(restApi));
         simulateMessageFromCloud(this.newQNEMessage(name, remote, new RestApi[] { restApi }));
 

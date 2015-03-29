@@ -46,7 +46,7 @@ public class ProxyApiWatchdogTest {
         ProxyApiWatchdog watchdog = new ProxyApiWatchdog(microservice, 8881);
         watchdog.start();
 
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("WatchDAWG", "test", 9999))).make());
+        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("test", 9999))).make());
         simulateMessageFromCloud(new MessageBuilder(Message.Type.PIN, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).make());
 
         verify(microservice, times(1)).publish(any(RestApi.class));
@@ -72,8 +72,8 @@ public class ProxyApiWatchdogTest {
         ProxyApiWatchdog watchdog = new ProxyApiWatchdog( microservice, 8881);
         watchdog.start();
 
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("WatchDAWG", "test", 9999))).make());
-        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("WatchDAWG", "test", 9999))).make());
+        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("test", 9999))).make());
+        simulateMessageFromCloud(new MessageBuilder(Message.Type.QNE, cloud, microservice.getAgent().getIden()).with(UUID.randomUUID()).with(new QnePayload("WatchDAWG", new RestApi("test", 9999))).make());
 
         verify(microservice, times(1)).publish(any(RestApi.class));
     }

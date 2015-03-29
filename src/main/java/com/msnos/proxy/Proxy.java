@@ -67,7 +67,7 @@ public class Proxy {
         main.start();
         redo.start();
         
-        microservice.publish(new RestApi("Proxy", "/msnos", mainPort, null, Type.MSNOS_HTTP, false));
+        microservice.publish(new RestApi("/msnos", mainPort, null, Type.MSNOS_HTTP, false));
     }
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {

@@ -11,6 +11,8 @@ import org.littleshoot.proxy.HttpFiltersAdapter;
 
 import com.workshare.msnos.usvc.Microcloud;
 
+//FIXME This whole thing will have to be reviewed and rewritten 
+//At the moment I am not sure it maakes complete sense [bb]
 public class PassiveServiceFilter extends HttpFiltersAdapter {
 
     private Microcloud microcloud;

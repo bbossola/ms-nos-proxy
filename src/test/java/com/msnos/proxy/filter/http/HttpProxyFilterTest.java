@@ -89,7 +89,7 @@ public class HttpProxyFilterTest {
 
     @Test
     public void shouldPopulateRequestURIWithTheApiFullUrl() throws Exception {
-        RestApi api = new RestApi(SERVICE, PATH, 1111);
+        RestApi api = new RestApi(PATH, 1111);
         installApi(PATH, api);
 
         invoke();
@@ -109,7 +109,7 @@ public class HttpProxyFilterTest {
     
     @Test
     public void shouldAddCookieWhenWhenApiHasSessionAffinity() throws Exception {
-        RestApi api = new RestApi(SERVICE, PATH, 1111, HOST).withAffinity();
+        RestApi api = new RestApi(PATH, 1111, HOST).withAffinity();
         installApi(PATH, api);
 
         HttpResponse response = invoke();
@@ -150,8 +150,8 @@ public class HttpProxyFilterTest {
     @Test
     public void shouldReturnCorrectAPIWhenMultipleAffinityHeldInCookie() throws Exception {
         
-        RestApi thisApi = installApi(PATH, new RestApi(SERVICE, PATH, 1111).withAffinity());
-        RestApi othrApi = installApi(PATH, new RestApi("other", "/foo", 9999).withAffinity());
+        RestApi thisApi = installApi(PATH, new RestApi(PATH, 1111).withAffinity());
+        RestApi othrApi = installApi(PATH, new RestApi("/foo", 9999).withAffinity());
         addApisCookie(thisApi, othrApi);
 
         invoke();
@@ -162,8 +162,8 @@ public class HttpProxyFilterTest {
     @Test
     public void shouldFollowToNextAlternativeAndNoCookieWhenAffiniteRestApiIsFaultyAndAlternativeIsAvailable() throws Exception {
 
-        RestApi api = installApi(PATH, new RestApi(SERVICE, PATH, 1111).withAffinity()).markFaulty();
-        RestApi two = installApi(PATH, new RestApi(SERVICE, PATH, 9999));
+        RestApi api = installApi(PATH, new RestApi(PATH, 1111).withAffinity()).markFaulty();
+        RestApi two = installApi(PATH, new RestApi(PATH, 9999));
 
         addHeadersToRequest(request, COOKIE, affinityCookie(api.getId()));
         HttpResponse response = invoke();
@@ -175,7 +175,7 @@ public class HttpProxyFilterTest {
     @Test
     public void shouldReturnBadGatewayAndNoCookieWhenAffiniteRestApiIsFaultyAndNoAlternatives() throws Exception {
 
-        RestApi api = installApi(PATH, new RestApi(SERVICE, PATH, 1111).withAffinity());
+        RestApi api = installApi(PATH, new RestApi(PATH, 1111).withAffinity());
         api.markFaulty();
 
         addHeadersToRequest(request, COOKIE, affinityCookie(api.getId()));
@@ -217,7 +217,7 @@ public class HttpProxyFilterTest {
 
     @Test
     public void shouldNOTServeClientApiMarkedAsHealthCheck() throws Exception {
-        installApi(PATH, new RestApi(SERVICE, PATH, 1111, HOST, RestApi.Type.HEALTHCHECK, false));
+        installApi(PATH, new RestApi(PATH, 1111, HOST, RestApi.Type.HEALTHCHECK, false));
 
         HttpResponse response = invoke();
 
@@ -226,7 +226,7 @@ public class HttpProxyFilterTest {
 
     @Test
     public void shouldNOTServeClientApiMarkedAsInternal() throws Exception {
-        installApi(PATH, new RestApi(SERVICE, PATH, 1111, HOST, RestApi.Type.INTERNAL, false));
+        installApi(PATH, new RestApi(PATH, 1111, HOST, RestApi.Type.INTERNAL, false));
 
         HttpResponse response = invoke();
 
@@ -234,7 +234,7 @@ public class HttpProxyFilterTest {
     }
 
     private RestApi installApi(final String path) {
-        return installApi(path, new RestApi(SERVICE, path, 9999));
+        return installApi(path, new RestApi(path, 9999));
     }
 
     private RestApi installApi(final String path, final RestApi api) {

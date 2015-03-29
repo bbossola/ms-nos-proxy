@@ -26,6 +26,8 @@ import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.PassiveService;
 import com.workshare.msnos.usvc.api.RestApi;
 
+// FIXME This whole thing will have to be reviewed and rewritten 
+// At the moment I am not sure it maakes complete sense [bb]
 public class PassiveRouter {
 
     private Microcloud microcloud;
@@ -82,14 +84,13 @@ public class PassiveRouter {
     private RestApi createRestApiFromJson(FullHttpRequest request) {
         try {
             JsonObject jsonObject = getAsJsonObject(getRequestContentAsString(request));
-            String name = getElementAsString(jsonObject, "name");
             String path = getElementAsString(jsonObject, "path");
             int port = jsonObject.get("port").getAsInt();
             String host = getElementAsString(jsonObject, "host");
             RestApi.Type type = RestApi.Type.valueOf(getElementAsString(jsonObject, "type"));
             boolean sessionAffinity = jsonObject.get("affinity").getAsBoolean();
 
-            return new RestApi(name, path, port, host, type, sessionAffinity);
+            return new RestApi(path, port, host, type, sessionAffinity);
         } catch (Exception e) {
             throw new JsonParseException("Could not correctly obtain the JSON for creation of Rest Api to be published. ");
         }
@@ -107,7 +108,8 @@ public class PassiveRouter {
 
     private PassiveService createPassiveService(JsonObject jsonObj) throws IllegalArgumentException, JsonParseException {
         try {
-            UUID cloudUUID = UUID.fromString(getElementAsString(jsonObj, "cloud"));
+            // FIXME - Why are we passing this and then not using it?
+//            UUID cloudUUID = UUID.fromString(getElementAsString(jsonObj, "cloud"));
             String name = getElementAsString(jsonObj, "service");
             String host = getElementAsString(jsonObj, "host");
             String healthcheck = getElementAsString(jsonObj, "healthcheck-uri");
