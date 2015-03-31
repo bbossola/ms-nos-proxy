@@ -9,8 +9,8 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Matchers.*;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,9 +19,11 @@ import static com.msnos.proxy.TestHelper.*;
 import java.awt.List;
 import java.util.UUID;
 
+import org.mockito.ArgumentMatcher;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.ClientCookieEncoder;
 import io.netty.handler.codec.http.Cookie;
 import io.netty.handler.codec.http.DefaultCookie;
@@ -47,6 +49,7 @@ import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.MessageBuilder;
 import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.core.payloads.FltPayload;
+import com.workshare.msnos.usvc.IMicroservice;
 import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
 import com.workshare.msnos.usvc.api.RestApi;
@@ -66,11 +69,13 @@ public class HttpProxyFilterTest {
     private HttpRequest request;
     
     private ApiList apis;
+    private ChannelHandlerContext context;
     
     @Before
     public void prepare() throws Exception {
         
         request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, PATH);
+        context = mock(ChannelHandlerContext.class);
         filter = null;
         
         microcloud = mock(Microcloud.class);
@@ -84,7 +89,7 @@ public class HttpProxyFilterTest {
 
         invoke();
         
-        verify(microcloud).searchApi(microservice, PATH);
+        verify(microcloud).searchApi(as(microservice), eq(PATH));
     }
 
     @Test
@@ -133,7 +138,7 @@ public class HttpProxyFilterTest {
 
         invoke();
     
-        verify(microcloud).searchApi(microservice, PATH);
+        verify(microcloud).searchApi(as(microservice), eq(PATH));
     }
 
     @Test
@@ -143,7 +148,7 @@ public class HttpProxyFilterTest {
         invoke();
     
         verify(microcloud, never()).searchApiById(anyLong());
-        verify(microcloud).searchApi(microservice, PATH);
+        verify(microcloud).searchApi(as(microservice), eq(PATH));
     }
 
 
@@ -232,7 +237,6 @@ public class HttpProxyFilterTest {
 
         assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
     }
-
     private RestApi installApi(final String path) {
         return installApi(path, new RestApi(path, 9999));
     }
@@ -248,9 +252,8 @@ public class HttpProxyFilterTest {
                 }};
     
             when(microcloud.canServe(path)).thenReturn(true);
-            when(microcloud.searchApi(microservice, path)).thenAnswer(answer);
+            when(microcloud.searchApi(as(microservice), eq(path))).thenAnswer(answer);
             when(microcloud.searchApiById(api.getId())).thenAnswer(answer);
-            when(microservice.searchApi(path)).thenAnswer(answer);
         }
         
         apis.add(TestHelper.newRemoteMicroservice(), api);
@@ -289,7 +292,7 @@ public class HttpProxyFilterTest {
     }
 
     private HttpProxyFilter setupHttpProxyFilter(HttpRequest httpRequest) {
-        return new HttpProxyFilter(httpRequest, microservice);
+        return new HttpProxyFilter(httpRequest, context, microservice);
     }
 
     private Microservice createMockMicroservice() {
@@ -321,4 +324,24 @@ public class HttpProxyFilterTest {
         
         return response;
     }
+    
+    private IMicroservice as(final Microservice uservice) {
+        return argThat(new SameMicroservice(uservice));
+    }
+
+    class SameMicroservice extends ArgumentMatcher<IMicroservice> {
+        private final IMicroservice target;
+
+        public SameMicroservice(IMicroservice target) {
+            this.target = target;
+        }
+        
+        public boolean matches(Object other) {
+            if (other instanceof ProxiedMicroservice) {
+                other = ((ProxiedMicroservice)other).getProxied();
+            } 
+            
+            return target.equals(other);
+        }
+    }    
 }

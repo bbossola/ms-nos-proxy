@@ -1,6 +1,7 @@
 package com.msnos.proxy;
 
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
@@ -73,8 +74,9 @@ public class Proxy {
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
 
+
             @Override
-            public HttpFilters filterRequest(HttpRequest request) {
+            public HttpFilters filterRequest(HttpRequest request, ChannelHandlerContext context) {
                 final String uri = request.getUri();
                 if (log.isDebugEnabled()) log.debug("Request for uri {}", uri);
                 
@@ -85,7 +87,7 @@ public class Proxy {
                 } else if (uri.startsWith("/pasv/")) {
                     return new PassiveServiceFilter(request, microservice.getCloud());
                 } else {
-                    return new HttpProxyFilter(request, microservice);
+                    return new HttpProxyFilter(request, context, microservice);
                 }
             }
 

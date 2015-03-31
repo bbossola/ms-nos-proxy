@@ -1,5 +1,6 @@
 package com.msnos.proxy.filter.http;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
@@ -16,9 +17,9 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
 
     private final HttpRouter router;
 
-    public HttpProxyFilter(HttpRequest originalRequest, Microservice microservice) {
+    public HttpProxyFilter(HttpRequest originalRequest, ChannelHandlerContext context, Microservice microservice) {
         super(originalRequest);
-        router = new HttpRouter(originalRequest, microservice);
+        router = new HttpRouter(originalRequest, context, microservice);
     }
 
     @Override

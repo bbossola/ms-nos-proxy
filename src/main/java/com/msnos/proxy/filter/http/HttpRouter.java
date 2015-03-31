@@ -1,32 +1,49 @@
 package com.msnos.proxy.filter.http;
 
-import com.msnos.proxy.filter.HttpRetry;
-import com.msnos.proxy.filter.Retry;
-import com.workshare.msnos.usvc.Microcloud;
-import com.workshare.msnos.usvc.Microservice;
-import com.workshare.msnos.usvc.api.RestApi;
-import com.workshare.msnos.usvc.api.RestApi.Type;
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.LOCATION;
+import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
+import static io.netty.handler.codec.http.HttpResponseStatus.BAD_GATEWAY;
+import static io.netty.handler.codec.http.HttpResponseStatus.FOUND;
+import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
+import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.handler.codec.http.*;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.CookieDecoder;
+import io.netty.handler.codec.http.DefaultCookie;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.ServerCookieEncoder;
 import io.netty.util.CharsetUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.*;
-import static io.netty.handler.codec.http.HttpResponseStatus.*;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.msnos.proxy.filter.HttpRetry;
+import com.msnos.proxy.filter.Retry;
+import com.workshare.msnos.usvc.IMicroservice;
+import com.workshare.msnos.usvc.Microcloud;
+import com.workshare.msnos.usvc.Microservice;
+import com.workshare.msnos.usvc.api.RestApi;
+import com.workshare.msnos.usvc.api.RestApi.Type;
 
 class HttpRouter {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRouter.class);
 
-    private static final int MAX_FAILURES = Integer.getInteger("com.msnos.proxy.api.failures.max", 4);
+    public static final int MAX_FAILURES = Integer.getInteger("com.msnos.proxy.api.failures.max", 4);
+    public static final boolean USE_REMOTE_ADDRESS = Boolean.getBoolean("com.msnos.proxy.use.remote.address");
 
     public static final String COOKIE_PREFIX = "x-msnos-";
     public static final String COOKIE_API_ID_FORMAT = COOKIE_PREFIX+"%s";
@@ -35,18 +52,22 @@ class HttpRouter {
     private static final Retry RETRY = new HttpRetry();
 
     private final Microcloud microcloud;
-    private final Microservice microservice;
+    private final IMicroservice microservice;
     private final String path;
 
     private RestApi api;
     private Set<Cookie> cookies;
 
-    public HttpRouter(HttpRequest originalRequest, Microservice microservice) {
-        this.microcloud = microservice.getCloud();
-        this.microservice = microservice;
+    public HttpRouter(HttpRequest originalRequest, ChannelHandlerContext context, Microservice aMicroservice) {
+        this.microcloud = aMicroservice.getCloud();
         this.path = extractPath(originalRequest);
-    }
 
+        if (USE_REMOTE_ADDRESS)
+            this.microservice = new ProxiedMicroservice(aMicroservice, context);
+        else
+            this.microservice = aMicroservice;
+    }
+    
     public HttpResponse computeApiRoute(HttpRequest request) {
 
         try {
@@ -98,7 +119,7 @@ class HttpRouter {
         if (RETRY.isNeeded(response)) {
             markApiFaultyStatus();
 
-            if (microservice.searchApi(path) == null) {
+            if (microcloud.searchApi(microservice,path) == null) {
                 response = noWorkingRestApiResponse();
             } else {
                 response = createRetryResponse();
