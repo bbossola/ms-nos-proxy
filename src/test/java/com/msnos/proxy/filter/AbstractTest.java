@@ -46,14 +46,14 @@ public abstract class AbstractTest {
     }
 
     protected Message newQNEMessage(String name, RemoteMicroservice remote, RestApi... restApi) {
-        return new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden())
+        return new MessageBuilder(Message.Type.QNE, remote.getAgent().getIden(), cloud.getIden())
                 .with(CLOUD_UUID)
                 .with(new QnePayload(name, restApi)).make();
     }
 
     protected Message newPRSMessage(RemoteAgent agent) {
         try {
-            return new MessageBuilder(MessageBuilder.Mode.RELAXED, Message.Type.PRS, agent.getIden(), cloud.getIden())
+            return new MessageBuilder(Message.Type.PRS, agent.getIden(), cloud.getIden())
                     .with(CLOUD_UUID)
                     .with(new Presence(true, agent)).make();
         } catch (MsnosException e) {
