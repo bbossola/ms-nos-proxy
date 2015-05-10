@@ -43,7 +43,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.HttpFilters;
 
-import com.msnos.proxy.TestHelper;
 import com.msnos.proxy.filter.AbstractTest;
 import com.workshare.msnos.core.Message;
 import com.workshare.msnos.core.MessageBuilder;
@@ -52,6 +51,7 @@ import com.workshare.msnos.core.payloads.FltPayload;
 import com.workshare.msnos.usvc.IMicroservice;
 import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
+import com.workshare.msnos.usvc.RemoteMicroservice;
 import com.workshare.msnos.usvc.api.RestApi;
 import com.workshare.msnos.usvc.api.routing.ApiList;
 
@@ -191,6 +191,24 @@ public class HttpProxyFilterTest {
     }
 
     @Test
+    public void shouldFollowToNextAlternativeAndNoCookieWhenAffiniteApiRemoved() throws Exception {
+
+        RemoteMicroservice micro = newRemoteMicroservice();
+        RestApi one = installApi(PATH, new RestApi(PATH, 1111).withAffinity(), micro);
+        RestApi two = installApi(PATH, new RestApi(PATH, 9999));
+        addHeadersToRequest(request, COOKIE, affinityCookie(one.getId()));
+        invoke();
+
+        uninstallApis(micro);
+        request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, PATH);
+        addHeadersToRequest(request, COOKIE, affinityCookie(one.getId()));
+        HttpResponse response = invoke();
+
+        assertEquals(two.getUrl(), request.getUri());
+        assertFalse(response.headers().contains(affinityCookie(one.getId())));
+    }
+
+    @Test
     public void shouldReturnRedirectOnApiTemporaryFaultAndNoAlternativesAvailable() throws Exception {
         final RestApi api = installApi(PATH);
         
@@ -237,12 +255,35 @@ public class HttpProxyFilterTest {
 
         assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
     }
+    
+    @Test
+    public void shouldAddApiHeaderToRequest() throws Exception {
+        installApi(PATH);
+        
+        HttpResponse response = invoke();
+       
+        assertNotNull(request.headers().get(HttpRouter.API_ID_HEADER));
+    }
+
+    @Test
+    public void shouldReturnRedirectIfApiHeaderFoundInRequest() throws Exception {
+        installApi(PATH);
+        
+        request.headers().add(HttpRouter.API_ID_HEADER, "foo");
+        HttpResponse response = invoke(internalError());
+       
+        assertEquals(HttpResponseStatus.FOUND, response.getStatus());
+    }
+
     private RestApi installApi(final String path) {
         return installApi(path, new RestApi(path, 9999));
     }
 
     private RestApi installApi(final String path, final RestApi api) {
-        
+        return installApi(path, api, newRemoteMicroservice());
+    }
+
+    private RestApi installApi(final String path, final RestApi api, final RemoteMicroservice uservice) {
         if (apis.size() == 0) {
             Answer<RestApi> answer = new Answer<RestApi>(){
                 @Override
@@ -256,10 +297,16 @@ public class HttpProxyFilterTest {
             when(microcloud.searchApiById(api.getId())).thenAnswer(answer);
         }
         
-        apis.add(TestHelper.newRemoteMicroservice(), api);
+        apis.add(uservice, api);
         return api;
     }
 
+    private void uninstallApis(RemoteMicroservice uservice) {
+        RestApi api = apis.get(uservice);
+        apis.remove(uservice);
+        when(microcloud.searchApiById(api.getId())).thenReturn(null);
+    }
+    
     private void assertRedirectTo(HttpResponse response, final String uri) {
         assertEquals(HttpResponseStatus.FOUND, response.getStatus());
         assertEquals(uri, getHeaders(response).get(LOCATION));

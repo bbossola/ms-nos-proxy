@@ -1,12 +1,7 @@
 package com.msnos.proxy;
 
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -17,8 +12,6 @@ import org.littleshoot.proxy.ChainedProxy;
 import org.littleshoot.proxy.ChainedProxyAdapter;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.HttpFiltersAdapter;
-import org.littleshoot.proxy.HttpFiltersSource;
 import org.littleshoot.proxy.HttpFiltersSourceAdapter;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
@@ -38,27 +31,19 @@ public class Proxy {
     private static final Logger log = LoggerFactory.getLogger(Proxy.class);
 
     private final Microservice microservice;
-    private final int mainPort;
-    private final int redirectPort;
+    private final CliParams params;
 
-    public Proxy(Microservice microservice, int port) {
+    public Proxy(Microservice microservice, CliParams params) {
         this.microservice = microservice;
-        this.mainPort = port;
-        this.redirectPort = mainPort + 1;
+        this.params = params;
     }
 
     public void start() throws Exception {
-        HttpProxyServerBootstrap redo = DefaultHttpProxyServer
-                .bootstrap()
-                .withPort(redirectPort)
-                .withName("500")
-                .withFiltersSource(getAlwaysUnavailableFilter())
-                .withTransparent(true)
-                .withAllowLocalOnly(false);
-        
         HttpProxyServerBootstrap main = DefaultHttpProxyServer
                 .bootstrap()
-                .withPort(mainPort)
+                .withPort(params.port())
+                .withIdleConnectionTimeout(params.idleTimeoutInSeconds())
+                .withConnectTimeout(params.connectTimeoutInSeconds()*1000)
                 .withName("MAIN")
                 .withFiltersSource(getHttpFiltersSourceAdapter())
                 .withChainProxyManager(chainedProxyManager())
@@ -66,14 +51,40 @@ public class Proxy {
                 .withAllowLocalOnly(false);
 
         main.start();
-        redo.start();
         
-        microservice.publish(new RestApi("/msnos", mainPort, null, Type.MSNOS_HTTP, false));
+        microservice.publish(new RestApi("/msnos", params.port(), null, Type.MSNOS_HTTP, false));
+    }
+
+    protected ChainedProxyManager chainedProxyManager() {
+        return new ChainedProxyManager() {
+            @Override
+            public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies) {
+                chainedProxies.add(defaultProxy());
+                chainedProxies.add(useIfConnectionFailedProxy());
+            }
+            
+            private ChainedProxyAdapter useIfConnectionFailedProxy() {
+                return new ChainedProxyAdapter() {
+
+                    @Override
+                    public InetSocketAddress getChainedProxyAddress() {
+                        try {
+                            return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), params.port());
+                        } catch (UnknownHostException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                };
+            }
+
+            private ChainedProxy defaultProxy() {
+                return ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION;
+            }
+        };
     }
 
     private HttpFiltersSourceAdapter getHttpFiltersSourceAdapter() {
         return new HttpFiltersSourceAdapter() {
-
 
             @Override
             public HttpFilters filterRequest(HttpRequest request, ChannelHandlerContext context) {
@@ -89,53 +100,6 @@ public class Proxy {
                 } else {
                     return new HttpProxyFilter(request, context, microservice);
                 }
-            }
-
-            @Override
-            public int getMaximumRequestBufferSizeInBytes() {
-                return 2048;
-            }
-
-        };
-    }
-
-    protected ChainedProxyManager chainedProxyManager() {
-        return new ChainedProxyManager() {
-            @Override
-            public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies) {
-                chainedProxies.add(defaultProxy());
-                chainedProxies.add(notfoundProxy());
-            }
-
-            private ChainedProxyAdapter notfoundProxy() {
-                return new ChainedProxyAdapter() {
-                    @Override
-                    public InetSocketAddress getChainedProxyAddress() {
-                        try {
-                            return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), redirectPort);
-                        } catch (UnknownHostException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                };
-            }
-
-            private ChainedProxy defaultProxy() {
-                return ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION;
-            }
-        };
-    }
-
-    private HttpFiltersSource getAlwaysUnavailableFilter() {
-        return new HttpFiltersSourceAdapter() {
-            public HttpFilters filterRequest(HttpRequest request) {
-                return new HttpFiltersAdapter(request) {
-                    @Override
-                    public HttpResponse requestPre(HttpObject httpObject) {
-                        log.debug("Helo, this is the 500 proxy server returning server error :)");
-                        return new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.SERVICE_UNAVAILABLE);
-                    }
-                };
             }
         };
     }

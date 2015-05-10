@@ -29,6 +29,12 @@ public class CliParams {
     @Parameter(names = {"--help", "-h"}, description = "Displays this help screen and exits", help = true)
     private boolean help;
 
+    @Parameter(names = {"--timeout", "-t"}, description = "Specify the timeout after which to disconnect idle connections, in seconds (default is 30)")
+    private int idleTimeout = 30;
+
+    @Parameter(names = {"--connect", "-c"}, description = "Specify the timeout for connecting to the remote server, in seconds (default is 10)")
+    private int connectTimeout = 30;
+
     public CliParams(String[] args) {
         JCommander jc = new JCommander(this, args);
 
@@ -50,6 +56,14 @@ public class CliParams {
         return port;
     }
 
+    public int idleTimeoutInSeconds() {
+        return idleTimeout;
+    }
+
+    public int connectTimeoutInSeconds() {
+        return connectTimeout;
+    }
+    
     public String usage() {
         // TODO Auto-generated method stub
         return null;

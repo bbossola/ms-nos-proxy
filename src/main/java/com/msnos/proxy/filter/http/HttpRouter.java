@@ -1,6 +1,7 @@
 package com.msnos.proxy.filter.http;
 
 import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static io.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
 import static io.netty.handler.codec.http.HttpHeaders.Names.LOCATION;
 import static io.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
@@ -45,6 +46,8 @@ class HttpRouter {
     public static final int MAX_FAILURES = Integer.getInteger("com.msnos.proxy.api.failures.max", 4);
     public static final boolean USE_REMOTE_ADDRESS = Boolean.getBoolean("com.msnos.proxy.use.remote.address");
 
+    public static final String API_ID_HEADER = "x-msnos-api";
+
     public static final String COOKIE_PREFIX = "x-msnos-";
     public static final String COOKIE_API_ID_FORMAT = COOKIE_PREFIX+"%s";
     public static final String[] EMPTY_PATH = new String[]{};
@@ -71,6 +74,11 @@ class HttpRouter {
     public HttpResponse computeApiRoute(HttpRequest request) {
 
         try {
+            if (request.headers().get(API_ID_HEADER) != null) {
+                log.debug("A retry was executed against an already seen API - sending it back as 302");
+                return createRetryResponse();
+            }
+
             boolean affinity = cookieMatchesUri(request);
             if (affinity) {
                 cookies = decodeCookies(request);
@@ -104,6 +112,7 @@ class HttpRouter {
             }
 
             request.setUri(api.getUrl());
+            request.headers().add(API_ID_HEADER, api.getId());
             return null;
         } catch (Exception ex) {
             log.error("General exception requesting " + request.getUri(), ex);
@@ -203,12 +212,14 @@ class HttpRouter {
     }
 
     private DefaultFullHttpResponse createResponse(HttpResponseStatus status) {
-        return new DefaultFullHttpResponse(HTTP_1_1, status);
+        final DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, status);
+        response.headers().set(CONTENT_LENGTH, "0");
+        return response; 
     }
 
     private HttpResponse noWorkingRestApiResponse() {
         String respString = String.format("All endpoints for %s are momentarily faulty", path);
-        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, writeContent(respString));
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, asByteBuf(respString));
         response.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
         return response;
     }
@@ -220,7 +231,7 @@ class HttpRouter {
         return response;
     }
 
-    private ByteBuf writeContent(String respString) {
+    private ByteBuf asByteBuf(String respString) {
         return Unpooled.buffer(respString.length()).writeBytes(respString.getBytes(CharsetUtil.UTF_8));
     }
 }

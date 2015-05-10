@@ -1,15 +1,26 @@
 <configuration scan="true" scanPeriod="10 seconds">
 
-	<!--  protocol logger -->
+    <!--  Protocol logger -->
     <appender name="proto.appender" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%msg%n</pattern>
+            <pattern>%-2(%d{dd MMM yyyy HH:mm:ss.SSS}) | %msg%n</pattern>
         </encoder>
-        <level value="INFO"/>
     </appender>
 
-    <logger name="protocol" additivity="false">
+    <logger name="protocol" level="ERROR" additivity="false">
         <appender-ref ref="proto.appender"/>
+    </logger>
+
+
+    <!--  Routing logger -->
+    <appender name="routing.appender" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%-2(%d{dd MMM yyyy HH:mm:ss.SSS}) | %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="routing" level="ERROR" additivity="false">
+        <appender-ref ref="routing.appender"/>
     </logger>
 
 
@@ -19,19 +30,22 @@
     <logger name="com.barchart" level="WARN"/>
     <logger name="org.littleshoot" level="WARN"/>
     <logger name="io.netty.logging" level="WARN"/>
+
+    <!-- let's be focused on the proxy! -->
+    <logger name="com.workshare.msnos" level="WARN"/>
     <logger name="com.msnos.proxy" level="DEBUG"/>
 
 
-	<!--  main logger -->
+    <!--  main logger -->
     <appender name="main.appender" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <pattern>%-2(%d{dd MMM yyyy HH:mm:ss.SSS}) | %class{0}: %method{20} - %msg%n</pattern>
         </encoder>
-        <level value="INFO"/>
+        <level value="WARN"/>
     </appender>
 
     <root>
-		<appender-ref ref="main.appender"/>
+	<appender-ref ref="main.appender"/>
     </root>
 
 </configuration>

@@ -35,6 +35,12 @@ public class HttpProxyFilter extends HttpFiltersAdapter {
     }
 
     @Override
+    public HttpResponse requestPost(HttpObject httpObject) {
+        if (log.isDebugEnabled()) log.debug("http: {}", httpObject);
+        return super.requestPost(httpObject);
+    }
+
+    @Override
     public HttpObject responsePre(HttpObject httpObject) {
         if (log.isDebugEnabled()) log.debug("http: {}", httpObject);
 

@@ -7,6 +7,7 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
@@ -26,12 +27,14 @@ import org.littleshoot.proxy.HttpFiltersAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.workshare.msnos.core.Agent;
 import com.workshare.msnos.core.Cloud;
 import com.workshare.msnos.core.RemoteAgent;
 import com.workshare.msnos.core.Ring;
 import com.workshare.msnos.core.geo.Location;
+import com.workshare.msnos.soup.json.Json;
 import com.workshare.msnos.usvc.IMicroservice;
 import com.workshare.msnos.usvc.Microcloud;
 import com.workshare.msnos.usvc.Microservice;
@@ -85,7 +88,17 @@ public class AdminFilter extends HttpFiltersAdapter {
         String content = gson.get().toJson(micros);
         DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
+        addControlHeaders(resp);
         return resp;
+    }
+
+    private void addControlHeaders(DefaultFullHttpResponse resp) {
+        if (Boolean.getBoolean("com.msnos.proxy.access-control-allow.disable") == false) {
+            HttpHeaders headers = resp.headers();
+            headers.set("Access-Control-Allow-Origin", "*");
+            headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT");
+            headers.set("Access-Control-Allow-Headers", "Content-Type");
+        }
     }
 
     private HttpResponse agents() {
@@ -158,6 +171,7 @@ public class AdminFilter extends HttpFiltersAdapter {
                 data = new JsonObject();
                 data.addProperty("uuid", ring.uuid().toString());
                 data.addProperty("location", ring.location().toString());
+                data.add("gps", toJsonTree(ring.location().getGPS()));
                 data.add("agents", new JsonArray());
                 rings.put(ring.uuid(), data);
             }
@@ -177,6 +191,10 @@ public class AdminFilter extends HttpFiltersAdapter {
         }
         
         return rings.values();
+    }
+
+    private JsonElement toJsonTree(final Object object) {
+        return (object == null) ? null : Json.toJsonTree(object);
     }
 
 

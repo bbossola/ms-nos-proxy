@@ -28,7 +28,7 @@ public class Main {
         System.out.println("- cloud: "+nimbus);
         System.out.println("- micro: "+myself);
         
-        Proxy proxy = new Proxy(myself, params.port());
+        Proxy proxy = new Proxy(myself, params);
         proxy.start();
         
         if (Boolean.getBoolean("com.msnos.proxy.api.republisher")) {
