@@ -92,20 +92,12 @@ public class AdminFilter extends HttpFiltersAdapter {
         return resp;
     }
 
-    private void addControlHeaders(DefaultFullHttpResponse resp) {
-        if (Boolean.getBoolean("com.msnos.proxy.access-control-allow.disable") == false) {
-            HttpHeaders headers = resp.headers();
-            headers.set("Access-Control-Allow-Origin", "*");
-            headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT");
-            headers.set("Access-Control-Allow-Headers", "Content-Type");
-        }
-    }
-
     private HttpResponse agents() {
         Collection<RemoteAgent> agents = microcloud.getCloud().getRemoteAgents();
         String content = gson.get().toJson(agents);
         DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
+        addControlHeaders(resp);
         return resp;
     }
 
@@ -142,6 +134,7 @@ public class AdminFilter extends HttpFiltersAdapter {
         String content = gson.get().toJson(result);
         DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
+        addControlHeaders(resp);
         return resp;
     }
 
@@ -152,6 +145,7 @@ public class AdminFilter extends HttpFiltersAdapter {
         String content = gson.get().toJson(rings);
         DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent(content));
         resp.headers().set(CONTENT_TYPE, "application/json; charset=UTF-8");
+        addControlHeaders(resp);
         return resp;
     }
 
@@ -241,6 +235,7 @@ public class AdminFilter extends HttpFiltersAdapter {
     private HttpResponse pong() {
         DefaultFullHttpResponse pong = new DefaultFullHttpResponse(HTTP_1_1, OK, writeContent("pong"));
         pong.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
+        addControlHeaders(pong);
         return pong;
     }
 
@@ -248,5 +243,13 @@ public class AdminFilter extends HttpFiltersAdapter {
         return Unpooled.buffer(resp.length()).writeBytes(resp.getBytes(CharsetUtil.UTF_8));
     }
 
+    private void addControlHeaders(DefaultFullHttpResponse resp) {
+        if (Boolean.getBoolean("com.msnos.proxy.access-control-allow.disable") == false) {
+            HttpHeaders headers = resp.headers();
+            headers.set("Access-Control-Allow-Origin", "*");
+            headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT");
+            headers.set("Access-Control-Allow-Headers", "Content-Type");
+        }
+    }
     
 }
