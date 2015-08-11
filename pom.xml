@@ -5,7 +5,7 @@
 
 	<groupId>com.workshare</groupId>
 	<artifactId>ms-nos-proxy</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.0.0-RC-01</version>
 
 	<distributionManagement>
 		<snapshotRepository>
@@ -73,9 +73,9 @@
 
 	<dependencies>
         <dependency>
-            <groupId>com.workshare.msnos</groupId>
-			<artifactId>ms-nos-core</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+        	<groupId>com.workshare.msnos</groupId>
+		<artifactId>ms-nos-core</artifactId>
+           	<version>1.0.0-RC-01</version>
         </dependency>
 		<dependency>
 			<groupId>org.littleshoot</groupId>
